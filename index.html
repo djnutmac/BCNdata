@@ -163,25 +163,42 @@ const {useState,useEffect,useRef,useCallback} = React;
 var APP_ID="16619440";
 var APP_KEY="e596d48164d007881b182b84bb3099bb";
 var BASE="https://api.tmb.cat/v1";
-var PROXIES=["https://corsproxy.io/?"];
+var PROXIES=[
+  "https://corsproxy.io/?",
+  "https://api.allorigins.win/raw?url=",
+  "https://cors-anywhere.herokuapp.com/"
+];
 
 function apiUrl(path){
   var sep=path.indexOf("?")>=0?"&":"?";
   return BASE+path+sep+"app_id="+APP_ID+"&app_key="+APP_KEY;
 }
 
+// Fetch with timeout
+function fetchWithTimeout(url,opts,ms){
+  return new Promise(function(resolve,reject){
+    var timeout=setTimeout(function(){reject(new Error("Timeout"));},ms);
+    fetch(url,opts).then(function(r){clearTimeout(timeout);resolve(r);}).catch(function(e){clearTimeout(timeout);reject(e);});
+  });
+}
+
 async function fetchTMB(path){
   var directUrl=apiUrl(path);
+
+  // Try direct with 8s timeout
   try{
-    var r=await fetch(directUrl,{headers:{Accept:"application/json"}});
+    var r=await fetchWithTimeout(directUrl,{headers:{Accept:"application/json"}},8000);
     if(r.ok) return await r.json();
   }catch(e){}
+
+  // Try each proxy with 8s timeout
   for(var i=0;i<PROXIES.length;i++){
     try{
-      var r=await fetch(PROXIES[i]+encodeURIComponent(directUrl));
+      var r=await fetchWithTimeout(PROXIES[i]+encodeURIComponent(directUrl),{},8000);
       if(r.ok) return await r.json();
     }catch(e){}
   }
+
   throw new Error("API error");
 }
 
@@ -340,32 +357,60 @@ function StopInfoPanel(props){
 function MapTab(props){
   var highlightStopCode=props.highlightStopCode,onHighlightHandled=props.onHighlightHandled,isFav=props.isFav,onToggleFav=props.onToggleFav;
   var _a=useState([]),stops=_a[0],setStops=_a[1];
-  var _b=useState(true),loading=_b[0],setLoading=_b[1];
-  var _c=useState(null),error=_c[0],setError=_c[1];
+  var _b=useState("loading"),status=_b[0],setStatus=_b[1]; // "loading" | "ready" | "error"
+  var _c=useState(null),errorMsg=_c[0],setErrorMsg=_c[1];
   var _d=useState(null),selectedStop=_d[0],setSelectedStop=_d[1];
   var mapRef=useRef(null);
   var containerRef=useRef(null);
   var markersRef=useRef(null);
   var initRef=useRef(false);
 
+  // Initialize map IMMEDIATELY - don't wait for API
   useEffect(function(){
     if(initRef.current||!containerRef.current) return;
+    if(typeof L==="undefined") return; // Leaflet not loaded yet
     initRef.current=true;
-    if(typeof L==="undefined"){initRef.current=false;return;}
     var map=L.map(containerRef.current,{zoomControl:true}).setView([41.3874,2.1686],13);
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>',maxZoom:19}).addTo(map);
     mapRef.current=map;
+    // Force a resize after a short delay to fix rendering in hidden containers
+    setTimeout(function(){if(mapRef.current) mapRef.current.invalidateSize();},200);
     return function(){map.remove();mapRef.current=null;initRef.current=false;};
   },[]);
 
+  // Retry Leaflet init if it wasn't ready
+  useEffect(function(){
+    if(!initRef.current&&containerRef.current&&typeof L!=="undefined"){
+      initRef.current=true;
+      var map=L.map(containerRef.current,{zoomControl:true}).setView([41.3874,2.1686],13);
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>',maxZoom:19}).addTo(map);
+      mapRef.current=map;
+      setTimeout(function(){if(mapRef.current) mapRef.current.invalidateSize();},200);
+    }
+  });
+
+  // Load stops in background - never block the map
   var loadStops=useCallback(async function(){
-    try{var all=await getAllStops();setStops(all);setLoading(false);}catch(e){setError("No s'han pogut carregar les parades");setLoading(false);}
+    setStatus("loading");
+    try{
+      var all=await getAllStops();
+      setStops(all);
+      setStatus("ready");
+    }catch(e){
+      setErrorMsg("No s'han pogut carregar les parades. Comprova la connexió.");
+      setStatus("error");
+    }
   },[]);
 
   useEffect(function(){loadStops();},[loadStops]);
 
-  useEffect(function(){var t=setTimeout(function(){if(loading)setLoading(false);},8000);return function(){clearTimeout(t);};},[loading]);
+  // Force status to "ready" after 10 seconds even if API hangs
+  useEffect(function(){
+    var t=setTimeout(function(){setStatus(function(s){return s==="loading"?"ready":s;});},10000);
+    return function(){clearTimeout(t);};
+  },[]);
 
+  // Update markers when stops change
   useEffect(function(){
     var map=mapRef.current;
     if(!map||stops.length===0) return;
@@ -393,13 +438,29 @@ function MapTab(props){
     }
   },[highlightStopCode,stops,onHighlightHandled]);
 
-  if(loading) return React.createElement("div",{className:"ld"},React.createElement("div",{className:"spin"}),React.createElement("p",null,"CARREGANT PARADES..."));
-  if(error) return React.createElement("div",{className:"ld"},React.createElement("p",{className:"err"},error),React.createElement("button",{className:"btn btn-r btn-s",onClick:loadStops},"REINTENTAR"));
-
+  // ALWAYS render the map container - overlay status on top
   return React.createElement("div",{style:{position:"relative",height:"100%",width:"100%"}},
+    // The map div is always rendered
     React.createElement("div",{ref:containerRef,style:{height:"100%",width:"100%"}}),
-    React.createElement("div",{className:"map-ov"},stops.length," PARADES"),
+
+    // Status overlay at the top
+    status==="loading"&&React.createElement("div",{style:{position:"absolute",top:12,left:"50%",transform:"translateX(-50%)",zIndex:1000,background:"rgba(255,255,255,.95)",borderRadius:20,boxShadow:"0 2px 8px rgba(0,0,0,.12)",padding:"6px 16px",fontSize:12,fontWeight:600,color:"#6b7280",display:"flex",alignItems:"center",gap:8}},
+      React.createElement("div",{className:"spin",style:{width:16,height:16,borderWidth:2}}),
+      "Carregant parades..."
+    ),
+
+    status==="error"&&React.createElement("div",{style:{position:"absolute",top:12,left:"50%",transform:"translateX(-50%)",zIndex:1000,background:"#fef2f2",borderRadius:20,boxShadow:"0 2px 8px rgba(0,0,0,.12)",padding:"6px 16px",fontSize:12,fontWeight:600,color:"#dc2626",textAlign:"center",maxWidth:"90%"}},
+      errorMsg||"Error",
+      React.createElement("button",{onClick:loadStops,style:{marginLeft:8,background:"none",border:"none",cursor:"pointer",color:"#E60000",fontWeight:700,fontSize:12}},"REINTENTAR")
+    ),
+
+    // Stop count badge (top-left)
+    stops.length>0&&React.createElement("div",{className:"map-ov"},stops.length," PARADES"),
+
+    // Refresh button (top-right)
     React.createElement("button",{className:"map-rf",onClick:loadStops},"🔄"),
+
+    // Selected stop panel
     selectedStop&&React.createElement(StopInfoPanel,{
       stopCode:selectedStop.codi_parada,stopName:selectedStop.nom_parada,
       lat:selectedStop.latitud,lon:selectedStop.longitud,

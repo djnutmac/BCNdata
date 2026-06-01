@@ -3,209 +3,416 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TMB Control Center | Dashboard di Rete</title>
+    <title>Mappa Traffico e Parcheggi - Singapore</title>
     
-    <!-- Leaflet CSS & JS -->
+    <!-- Tailwind CSS per il design -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    
-    <!-- FontAwesome -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
     <style>
-        :root {
-            --bg-dark: #121212;
-            --panel-bg: #1e1e1e;
-            --text-main: #ffffff;
-            --text-muted: #aaaaaa;
-            --accent-blue: #00a8ff;
-            --accent-red: #e84118;
-            --accent-green: #4cd137;
-            --border-color: #333333;
-        }
-
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        }
-
-        body {
-            background-color: var(--bg-dark);
-            color: var(--text-main);
-            height: 100vh;
-            width: 100vw;
-            display: flex;
-            overflow: hidden;
-        }
-
-        #map-container { flex: 1; height: 100%; position: relative; }
-        #map { width: 100%; height: 100%; background-color: #000; }
-
+        body, html { margin: 0; padding: 0; height: 100%; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        
+        /* Contenitore Mappa a tutto schermo */
+        #map { height: 100vh; width: 100vw; z-index: 1; }
+        
+        /* Pannello di controllo laterale */
         #sidebar {
-            width: 450px;
-            height: 100%;
-            background-color: var(--panel-bg);
-            border-left: 1px solid var(--border-color);
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 340px;
+            max-height: calc(100vh - 40px);
+            z-index: 1000;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            border-radius: 12px;
             display: flex;
             flex-direction: column;
-            z-index: 1000;
+            overflow: hidden;
+            border: 1px solid #e5e7eb;
         }
 
-        .sidebar-header { padding: 20px; border-bottom: 1px solid var(--border-color); background: #2a2a2a; }
-        .sidebar-header h1 { font-size: 1.2rem; color: var(--accent-blue); display: flex; align-items: center; gap: 10px; }
-        .search-box { margin-top: 15px; position: relative; }
-        .search-box input { width: 100%; padding: 12px 15px; padding-left: 40px; background-color: #111; border: 1px solid var(--border-color); color: white; border-radius: 6px; }
-        #search-results { position: absolute; top: 100%; left: 0; width: 100%; background: #222; border: 1px solid var(--border-color); max-height: 200px; overflow-y: auto; z-index: 10; display: none; }
-        .search-item { padding: 10px 15px; cursor: pointer; border-bottom: 1px solid #333; display: flex; align-items: center; gap: 10px; }
-        .search-item:hover { background-color: #333; }
+        .scrollable-content {
+            overflow-y: auto;
+            flex-grow: 1;
+            padding: 16px;
+        }
 
-        .sidebar-content { flex: 1; overflow-y: auto; padding: 20px; }
-        .section-title { font-size: 0.9rem; color: var(--text-muted); text-transform: uppercase; margin-bottom: 15px; border-bottom: 1px solid #333; }
-        .layer-controls { display: flex; gap: 10px; margin-bottom: 20px; }
-        .btn-toggle { flex: 1; padding: 10px; background-color: #333; border: none; color: white; border-radius: 6px; cursor: pointer; }
-        .btn-toggle.active { background-color: var(--accent-green); color: black; }
+        /* Scrollbar personalizzata per il pannello */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
 
-        #telemetry-panel { background-color: #111; border-radius: 8px; padding: 15px; display: none; border: 1px solid #333; }
-        .arrival-item { display: flex; justify-content: space-between; align-items: center; background: #222; padding: 10px; margin-bottom: 5px; border-radius: 4px; border-left: 4px solid var(--accent-blue); }
+        /* Icone mappa personalizzate (CSS) */
+        .incident-icon div {
+            width: 16px; height: 16px;
+            background-color: #ef4444;
+            border: 2px solid white;
+            border-radius: 50%;
+            box-shadow: 0 0 4px rgba(0,0,0,0.5);
+            animation: pulse 2s infinite;
+        }
+        
+        .carpark-icon div {
+            width: 14px; height: 14px;
+            background-color: #3b82f6;
+            border: 2px solid white;
+            border-radius: 50%;
+            box-shadow: 0 0 4px rgba(0,0,0,0.4);
+        }
 
-        .loader { display: none; width: 20px; height: 20px; border: 3px solid rgba(255,255,255,0.3); border-radius: 50%; border-top-color: var(--accent-blue); animation: spin 1s linear infinite; margin: 10px auto; }
-        @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+        }
 
-        .marker-pin { width: 14px; height: 14px; border-radius: 50%; background: white; border: 3px solid var(--accent-blue); box-shadow: 0 0 10px rgba(0, 168, 255, 0.8); }
-        .marker-metro { border-color: var(--accent-red); }
-        .marker-hub { border-color: var(--accent-green); width: 20px; height: 20px; }
+        /* Loader */
+        .loader {
+            border: 3px solid #f3f3f3; border-top: 3px solid #3b82f6;
+            border-radius: 50%; width: 16px; height: 16px;
+            animation: spin 1s linear infinite; display: inline-block; vertical-align: middle;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
 
-    <div id="map-container"><div id="map"></div></div>
+    <div id="map"></div>
 
+    <!-- Pannello UI Sovrapposto -->
     <div id="sidebar">
-        <div class="sidebar-header">
-            <h1><i class="fa-solid fa-satellite-dish"></i> TMB Control Center</h1>
-            <div class="search-box">
-                <i class="fa-solid fa-magnifying-glass"></i>
-                <input type="text" id="search-input" placeholder="Cerca Linea o Fermata..." autocomplete="off">
-                <div id="search-results"></div>
-            </div>
+        <div class="bg-slate-800 text-white p-4 rounded-t-xl">
+            <h1 class="text-lg font-bold">Smart City Singapore</h1>
+            <p class="text-xs text-slate-300">Dati LTA in tempo reale</p>
         </div>
 
-        <div class="sidebar-content">
-            <h2 class="section-title">Controlli Infrastruttura</h2>
-            <div class="layer-controls">
-                <button class="btn-toggle" id="btn-hubs" onclick="toggleHubs()">Intercanviadors</button>
-                <button class="btn-toggle" onclick="clearMap()">Pulisci Mappa</button>
-            </div>
+        <div class="scrollable-content space-y-6">
+            
+            <!-- Sezione Livelli Mappa -->
+            <section>
+                <h2 class="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-3">Livelli Mappa</h2>
+                
+                <div class="flex items-center justify-between bg-blue-50 p-3 rounded-lg border border-blue-100 mb-2">
+                    <div class="flex items-center gap-2">
+                        <div class="w-3 h-3 bg-blue-500 rounded-full border border-white outline outline-1 outline-blue-200"></div>
+                        <span class="text-sm font-medium text-slate-700">Parcheggi</span>
+                    </div>
+                    <button id="btn-carparks" onclick="toggleCarparks()" class="text-xs bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded-full transition-colors">
+                        Carica
+                    </button>
+                </div>
 
-            <div id="telemetry-panel">
-                <h2 class="section-title">Telemetria</h2>
-                <div id="stop-name-display" style="font-weight:bold; margin-bottom:10px;"></div>
-                <div id="eta-container"></div>
-                <div class="loader" id="telemetry-loader"></div>
-            </div>
+                <div class="flex items-center justify-between bg-red-50 p-3 rounded-lg border border-red-100">
+                    <div class="flex items-center gap-2">
+                        <div class="w-3 h-3 bg-red-500 rounded-full border border-white outline outline-1 outline-red-200"></div>
+                        <span class="text-sm font-medium text-slate-700">Incidenti / Lavori</span>
+                    </div>
+                    <button id="btn-incidents" onclick="toggleIncidents()" class="text-xs bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded-full transition-colors">
+                        Carica
+                    </button>
+                </div>
+            </section>
 
-            <h2 class="section-title">Dettagli Accessi</h2>
-            <div id="access-panel" style="color:var(--text-muted); font-size: 0.9rem;">Seleziona una fermata Metro.</div>
+            <hr class="border-slate-200">
+
+            <!-- Sezione Tempi di Percorrenza -->
+            <!-- Le autostrade non hanno lat/lon nell'API, quindi le mostriamo in un elenco laterale -->
+            <section>
+                <div class="flex items-center justify-between mb-3">
+                    <h2 class="text-sm font-semibold text-slate-500 uppercase tracking-wider">Tempi Autostrade</h2>
+                    <button onclick="loadTravelTimes()" class="text-slate-400 hover:text-slate-600">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                    </button>
+                </div>
+                
+                <div id="travel-times-container" class="space-y-2">
+                    <p class="text-xs text-slate-400 text-center py-4">Clicca sull'icona di aggiornamento per caricare i tempi di percorrenza.</p>
+                </div>
+            </section>
+
         </div>
     </div>
 
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
     <script>
-        const API_ID = 'a5d88368';
-        const API_KEY = '4a578607c30c461a8fd7729700711337';
-        const BASE_URL = 'https://api.tmb.cat/v1';
+        // ==========================================
+        // CONFIGURAZIONE API E MAPPA
+        // ==========================================
+        const API_KEY = 'c/A8/OWfS5umMghtp9P21A==';
+        const BASE_URL = 'https://datamall2.mytransport.sg/ltaodataservice/';
 
-        const map = L.map('map', { zoomControl: false }).setView([41.3879, 2.16992], 13);
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { maxZoom: 20 }).addTo(map);
+        // Inizializzazione Mappa (Centro su Singapore)
+        const map = L.map('map', {
+            zoomControl: false // Spostiamo i controlli zoom per non sovrapporsi al pannello
+        }).setView([1.3521, 103.8198], 12);
 
-        const linesLayer = L.featureGroup().addTo(map);
-        const stopsLayer = L.featureGroup().addTo(map);
-        const hubsLayer = L.featureGroup().addTo(map);
+        L.control.zoom({ position: 'topleft' }).addTo(map);
 
-        let allLinesData = [];
-        let hubsActive = false;
+        // Aggiunta layer mappa BIANCO/CHIARO (CartoDB Positron)
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+            subdomains: 'abcd',
+            maxZoom: 19
+        }).addTo(map);
 
-        async function fetchTMB(endpoint) {
-            const url = `${BASE_URL}${endpoint}?app_id=${API_ID}&app_key=${API_KEY}`;
-            try {
-                const response = await fetch(url);
-                if (!response.ok) return null;
-                return await response.json();
-            } catch (e) { return null; }
+        // Gruppi di layer per poterli attivare/disattivare
+        const carparksLayerGroup = L.layerGroup();
+        const incidentsLayerGroup = L.layerGroup();
+
+        // Icone personalizzate (Generate via HTML/CSS per non dipendere da immagini esterne)
+        const carparkIcon = L.divIcon({ className: 'carpark-icon', html: '<div></div>', iconSize: [14, 14], iconAnchor: [7, 7] });
+        const incidentIcon = L.divIcon({ className: 'incident-icon', html: '<div></div>', iconSize: [16, 16], iconAnchor: [8, 8] });
+
+        // Stato dei livelli
+        let isCarparksLoaded = false;
+        let isIncidentsLoaded = false;
+
+        // ==========================================
+        // FUNZIONE FETCH CON PROXY MULTIPLI & FALLBACK
+        // ==========================================
+        async function fetchLTAData(endpoint) {
+            const targetUrl = BASE_URL + endpoint;
+            
+            // Tentiamo con diversi Proxy CORS gratuiti
+            const proxies = [
+                `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`,
+                `https://api.codetabs.com/v1/proxy?quest=${targetUrl}`,
+                `https://thingproxy.freeboard.io/fetch/${targetUrl}`
+            ];
+
+            for (const proxyUrl of proxies) {
+                try {
+                    const response = await fetch(proxyUrl, {
+                        method: 'GET',
+                        headers: {
+                            'AccountKey': API_KEY,
+                            'Accept': 'application/json'
+                        }
+                    });
+                    
+                    if (response.ok) {
+                        return await response.json();
+                    }
+                } catch (error) {
+                    console.warn(`Tentativo fallito con proxy: ${proxyUrl}`);
+                    // Continua al prossimo proxy nel ciclo
+                }
+            }
+            
+            // Se arriviamo qui, tutti i proxy hanno fallito. Usiamo i dati simulati.
+            console.error("Tutti i proxy CORS hanno fallito (CORS policy o blocchi). Utilizzo dati simulati.");
+            showMockWarning();
+            return getMockData(endpoint);
         }
 
-        async function initApp() {
-            const busRes = await fetchTMB('/transit/linies/bus');
-            const metroRes = await fetchTMB('/transit/linies/metro');
-            if(busRes?.features) busRes.features.forEach(f => allLinesData.push({ id: f.properties.CODI_LINIA, name: f.properties.NOM_LINIA, type: 'bus' }));
-            if(metroRes?.features) metroRes.features.forEach(f => allLinesData.push({ id: f.properties.CODI_LINIA, name: f.properties.NOM_LINIA, type: 'metro' }));
-        }
-
-        document.getElementById('search-input').addEventListener('input', (e) => {
-            const val = e.target.value.toLowerCase();
-            const resBox = document.getElementById('search-results');
-            if (val.length < 2) { resBox.style.display = 'none'; return; }
-            const filtered = allLinesData.filter(l => l.id.toString().toLowerCase().includes(val) || l.name.toLowerCase().includes(val)).slice(0, 8);
-            resBox.innerHTML = filtered.map(l => `<div class="search-item" onclick="loadLineOnMap('${l.id}', '${l.type}')">${l.id} - ${l.name}</div>`).join('');
-            resBox.style.display = filtered.length ? 'block' : 'none';
-        });
-
-        async function loadLineOnMap(lineId, type) {
-            linesLayer.clearLayers(); stopsLayer.clearLayers();
-            const endpoint = type === 'metro' ? `/transit/linies/metro/${lineId}/estacions` : `/transit/linies/bus/${lineId}/parades`;
-            const data = await fetchTMB(endpoint);
-            if (!data?.features) return;
-            
-            const stops = data.features.sort((a,b) => a.properties.ORDRE - b.properties.ORDRE);
-            const latlngs = stops.map(s => [s.geometry.coordinates[1], s.geometry.coordinates[0]]);
-            L.polyline(latlngs, {color: type === 'metro' ? '#e84118' : '#00a8ff', weight: 4}).addTo(linesLayer);
-            
-            stops.forEach(s => {
-                const marker = L.marker([s.geometry.coordinates[1], s.geometry.coordinates[0]], {
-                    icon: L.divIcon({className:'custom-div-icon', html:`<div class="marker-pin ${type==='metro'?'marker-metro':''}"></div>`})
-                }).addTo(stopsLayer);
-                const nom = s.properties.NOM_PARADA || s.properties.NOM_ESTACIO;
-                const codi = s.properties.CODI_PARADA || s.properties.CODI_ESTACIO;
-                marker.on('click', () => openTelemetry(codi, nom, lineId, type));
-            });
-            map.fitBounds(linesLayer.getBounds(), {padding: [50,50]});
-        }
-
-        async function openTelemetry(stopCode, name, lineId, type) {
-            document.getElementById('telemetry-panel').style.display = 'block';
-            document.getElementById('stop-name-display').innerText = name;
-            document.getElementById('eta-container').innerHTML = '';
-            document.getElementById('telemetry-loader').style.display = 'block';
-            
-            if (type === 'bus') {
-                const data = await fetchTMB(`/ibus/stops/${stopCode}`);
-                document.getElementById('telemetry-loader').style.display = 'none';
-                const arrivals = data?.data?.ibus?.filter(i => i.line == lineId) || [];
-                document.getElementById('eta-container').innerHTML = arrivals.length 
-                    ? arrivals.map(a => `<div class="arrival-item">${a.line} - ${a.destination} <span style="float:right">${a['t-in-min']} min</span></div>`).join('')
-                    : 'Nessun dato.';
-            } else {
-                document.getElementById('telemetry-loader').style.display = 'none';
-                document.getElementById('eta-container').innerHTML = 'Info linea frequente.';
+        // Mostra un banner di avviso se i dati sono simulati
+        function showMockWarning() {
+            if (!document.getElementById('mock-warning')) {
+                const banner = document.createElement('div');
+                banner.id = 'mock-warning';
+                banner.className = 'absolute top-4 left-1/2 transform -translate-x-1/2 bg-yellow-500 text-white px-4 py-2 rounded-lg shadow-lg z-[2000] text-sm font-bold flex items-center gap-2';
+                banner.innerHTML = `
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+                    </svg>
+                    Proxy bloccati. Modalità Dati Simulati (Mock) attiva.
+                `;
+                document.body.appendChild(banner);
+                setTimeout(() => banner.remove(), 6000);
             }
         }
 
-        async function toggleHubs() {
-            hubsActive = !hubsActive;
-            if (hubsActive) {
-                const data = await fetchTMB('/transit/intercanviadors');
-                if (!data?.features) { alert('Dataset interscambi non disponibile.'); hubsActive = false; return; }
-                data.features.forEach(h => L.marker([h.geometry.coordinates[1], h.geometry.coordinates[0]], {icon: L.divIcon({className:'custom-div-icon', html:'<div class="marker-pin marker-hub"></div>'})}).addTo(hubsLayer));
-                document.getElementById('btn-hubs').classList.add('active');
+        // Funzione per restituire dati finti se l'API reale è inaccessibile
+        function getMockData(endpoint) {
+            if (endpoint === 'CarParkAvailabilityv2') {
+                return {
+                    value: [
+                        { Location: "1.3039 103.8320", Development: "Orchard Ion", LotType: "C", Agency: "LTA", AvailableLots: 45 },
+                        { Location: "1.2834 103.8554", Development: "Marina Bay Sands", LotType: "C", Agency: "LTA", AvailableLots: 5 },
+                        { Location: "1.3323 103.9300", Development: "Bedok Mall", LotType: "C", Agency: "HDB", AvailableLots: 120 },
+                        { Location: "1.2990 103.8450", Development: "Plaza Singapura", LotType: "C", Agency: "LTA", AvailableLots: 0 },
+                        { Location: "1.3340 103.7340", Development: "JEM Jurong", LotType: "C", Agency: "LTA", AvailableLots: 88 }
+                    ]
+                };
+            }
+            if (endpoint === 'TrafficIncidents') {
+                return {
+                    value: [
+                        { Latitude: 1.313, Longitude: 103.815, Type: "Accident", Message: "(Oggi) 14:30 Incidente su PIE (verso Changi) vicino ad Adam Rd. Evitare corsia 1." },
+                        { Latitude: 1.293, Longitude: 103.855, Type: "Roadwork", Message: "(Oggi) 15:00 Lavori su ECP (verso Centro) vicino a Rochor Rd." },
+                        { Latitude: 1.350, Longitude: 103.750, Type: "Vehicle breakdown", Message: "(Oggi) 16:10 Veicolo in panne su AYE (verso Tuas)." }
+                    ]
+                };
+            }
+            if (endpoint === 'EstTravelTimes') {
+                return {
+                    value: [
+                        { Name: "PIE", StartPoint: "Jurong", EndPoint: "Adam Rd", EstTime: 15 },
+                        { Name: "PIE", StartPoint: "Adam Rd", EndPoint: "Changi", EstTime: 22 },
+                        { Name: "ECP", StartPoint: "Changi", EndPoint: "City", EstTime: 18 },
+                        { Name: "AYE", StartPoint: "City", EndPoint: "Clementi", EstTime: 12 },
+                        { Name: "CTE", StartPoint: "Braddell", EndPoint: "City", EstTime: 9 }
+                    ]
+                };
+            }
+            return { value: [] };
+        }
+
+        // ==========================================
+        // GESTIONE PARCHEGGI (Carpark Availability)
+        // ==========================================
+        async function toggleCarparks() {
+            const btn = document.getElementById('btn-carparks');
+            
+            if (map.hasLayer(carparksLayerGroup)) {
+                map.removeLayer(carparksLayerGroup);
+                btn.textContent = 'Mostra';
+                btn.classList.replace('bg-slate-500', 'bg-blue-500');
+                btn.classList.replace('hover:bg-slate-600', 'hover:bg-blue-600');
             } else {
-                hubsLayer.clearLayers();
-                document.getElementById('btn-hubs').classList.remove('active');
+                if (!isCarparksLoaded) {
+                    btn.innerHTML = '<span class="loader border-t-white"></span>';
+                    const data = await fetchLTAData('CarParkAvailabilityv2');
+                    
+                    if (data && data.value) {
+                        data.value.forEach(carpark => {
+                            // L'API a volte passa "lat lng" come stringa unica separata da spazio
+                            if(carpark.Location && typeof carpark.Location === 'string' && carpark.Location.trim() !== '') {
+                                const coords = carpark.Location.split(' ');
+                                if(coords.length === 2) {
+                                    const lat = parseFloat(coords[0]);
+                                    const lng = parseFloat(coords[1]);
+                                    
+                                    if(!isNaN(lat) && !isNaN(lng)) {
+                                        const colorStr = carpark.AvailableLots > 10 ? 'text-green-600' : 'text-red-600';
+                                        
+                                        const popupContent = `
+                                            <div class="font-sans">
+                                                <h3 class="font-bold text-sm mb-1">${carpark.Development || 'Parcheggio'}</h3>
+                                                <p class="text-xs text-slate-600 m-0">Tipo: ${carpark.LotType} | Agenzia: ${carpark.Agency}</p>
+                                                <p class="text-sm font-semibold mt-2 m-0">Posti Liberi: <span class="${colorStr}">${carpark.AvailableLots}</span></p>
+                                            </div>
+                                        `;
+                                        
+                                        L.marker([lat, lng], {icon: carparkIcon})
+                                         .bindPopup(popupContent)
+                                         .addTo(carparksLayerGroup);
+                                    }
+                                }
+                            }
+                        });
+                        isCarparksLoaded = true;
+                    }
+                }
+                
+                map.addLayer(carparksLayerGroup);
+                btn.textContent = 'Nascondi';
+                btn.classList.replace('bg-blue-500', 'bg-slate-500');
+                btn.classList.replace('hover:bg-blue-600', 'hover:bg-slate-600');
             }
         }
 
-        function clearMap() { linesLayer.clearLayers(); stopsLayer.clearLayers(); document.getElementById('telemetry-panel').style.display = 'none'; }
-        window.onload = initApp;
+        // ==========================================
+        // GESTIONE INCIDENTI (Traffic Incidents)
+        // ==========================================
+        async function toggleIncidents() {
+            const btn = document.getElementById('btn-incidents');
+            
+            if (map.hasLayer(incidentsLayerGroup)) {
+                map.removeLayer(incidentsLayerGroup);
+                btn.textContent = 'Mostra';
+                btn.classList.replace('bg-slate-500', 'bg-red-500');
+                btn.classList.replace('hover:bg-slate-600', 'hover:bg-red-600');
+            } else {
+                btn.innerHTML = '<span class="loader border-t-white"></span>';
+                
+                // Puliamo i vecchi dati per avere sempre la situazione in tempo reale
+                incidentsLayerGroup.clearLayers();
+                
+                const data = await fetchLTAData('TrafficIncidents');
+                
+                if (data && data.value) {
+                    data.value.forEach(incident => {
+                        const popupContent = `
+                            <div class="font-sans max-w-[200px]">
+                                <h3 class="font-bold text-sm text-red-600 border-b border-red-200 pb-1 mb-2">${incident.Type.toUpperCase()}</h3>
+                                <p class="text-xs text-slate-700 m-0 leading-relaxed">${incident.Message}</p>
+                            </div>
+                        `;
+                        
+                        L.marker([incident.Latitude, incident.Longitude], {icon: incidentIcon})
+                         .bindPopup(popupContent)
+                         .addTo(incidentsLayerGroup);
+                    });
+                }
+                
+                map.addLayer(incidentsLayerGroup);
+                btn.textContent = 'Nascondi';
+                btn.classList.replace('bg-red-500', 'bg-slate-500');
+                btn.classList.replace('hover:bg-red-600', 'hover:bg-slate-600');
+            }
+        }
+
+        // ==========================================
+        // TEMPI DI PERCORRENZA AUTOSTRADE
+        // ==========================================
+        // L'API EstTravelTimes non restituisce coordinate lat/lon, ma solo nomi di nodi e tempi.
+        // Pertanto è ideale mostrarli in una lista nel pannello laterale.
+        async function loadTravelTimes() {
+            const container = document.getElementById('travel-times-container');
+            container.innerHTML = '<div class="text-center py-4"><span class="loader border-t-blue-500"></span></div>';
+            
+            const data = await fetchLTAData('EstTravelTimes');
+            
+            if (data && data.value && data.value.length > 0) {
+                container.innerHTML = '';
+                
+                // Raggruppiamo i dati per nome autostrada (Name)
+                const grouped = data.value.reduce((acc, curr) => {
+                    if(!acc[curr.Name]) acc[curr.Name] = [];
+                    acc[curr.Name].push(curr);
+                    return acc;
+                }, {});
+
+                for (const [hway, segments] of Object.entries(grouped)) {
+                    // Creiamo una card per ogni autostrada
+                    let segmentsHTML = segments.map(seg => `
+                        <div class="flex justify-between items-center text-xs py-1 border-b border-slate-100 last:border-0">
+                            <div class="w-3/4 truncate pr-2 text-slate-600" title="Da: ${seg.StartPoint} A: ${seg.EndPoint}">
+                                <span class="font-semibold text-slate-400">Da</span> ${seg.StartPoint}<br>
+                                <span class="font-semibold text-slate-400">A</span> ${seg.EndPoint}
+                            </div>
+                            <div class="w-1/4 text-right">
+                                <span class="font-bold text-blue-600">${seg.EstTime}</span> min
+                            </div>
+                        </div>
+                    `).join('');
+
+                    container.innerHTML += `
+                        <div class="bg-white border border-slate-200 rounded-lg shadow-sm mb-2 overflow-hidden">
+                            <div class="bg-slate-100 px-3 py-2 border-b border-slate-200 font-bold text-xs text-slate-700">
+                                Autostrada: ${hway}
+                            </div>
+                            <div class="px-3 py-1">
+                                ${segmentsHTML}
+                            </div>
+                        </div>
+                    `;
+                }
+            } else {
+                container.innerHTML = '<p class="text-xs text-red-500 text-center py-4">Nessun dato disponibile al momento.</p>';
+            }
+        }
+        
     </script>
 </body>
 </html>

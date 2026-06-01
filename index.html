@@ -3,406 +3,209 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BCN Traffic Control Center</title>
+    <title>TMB Control Center | Dashboard di Rete</title>
     
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Leaflet CSS & JS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     
-    <!-- Leaflet CSS -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
-    
-    <!-- Google Fonts (Inter) -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
     <style>
-        body { font-family: 'Inter', sans-serif; overflow: hidden; }
-        
-        /* Personalizzazione Scrollbar Pannello Laterale */
-        ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-track { background: #0f172a; }
-        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
-        ::-webkit-scrollbar-thumb:hover { background: #475569; }
-
-        /* Stili Popup Leaflet (Tema Scuro) */
-        .leaflet-popup-content-wrapper {
-            background-color: #1e293b;
-            color: #f8fafc;
-            border-radius: 0.5rem;
-            border: 1px solid #334155;
-            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+        :root {
+            --bg-dark: #121212;
+            --panel-bg: #1e1e1e;
+            --text-main: #ffffff;
+            --text-muted: #aaaaaa;
+            --accent-blue: #00a8ff;
+            --accent-red: #e84118;
+            --accent-green: #4cd137;
+            --border-color: #333333;
         }
-        .leaflet-popup-tip { background-color: #1e293b; border: 1px solid #334155; }
-        .leaflet-popup-close-button { color: #94a3b8 !important; }
-        .leaflet-popup-content { margin: 12px; }
 
-        /* Effetti Polilinee al passaggio del mouse */
-        path.leaflet-interactive:hover {
-            stroke-opacity: 1;
-            filter: drop-shadow(0 0 6px currentColor);
-            cursor: pointer;
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         }
+
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            height: 100vh;
+            width: 100vw;
+            display: flex;
+            overflow: hidden;
+        }
+
+        #map-container { flex: 1; height: 100%; position: relative; }
+        #map { width: 100%; height: 100%; background-color: #000; }
+
+        #sidebar {
+            width: 450px;
+            height: 100%;
+            background-color: var(--panel-bg);
+            border-left: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            z-index: 1000;
+        }
+
+        .sidebar-header { padding: 20px; border-bottom: 1px solid var(--border-color); background: #2a2a2a; }
+        .sidebar-header h1 { font-size: 1.2rem; color: var(--accent-blue); display: flex; align-items: center; gap: 10px; }
+        .search-box { margin-top: 15px; position: relative; }
+        .search-box input { width: 100%; padding: 12px 15px; padding-left: 40px; background-color: #111; border: 1px solid var(--border-color); color: white; border-radius: 6px; }
+        #search-results { position: absolute; top: 100%; left: 0; width: 100%; background: #222; border: 1px solid var(--border-color); max-height: 200px; overflow-y: auto; z-index: 10; display: none; }
+        .search-item { padding: 10px 15px; cursor: pointer; border-bottom: 1px solid #333; display: flex; align-items: center; gap: 10px; }
+        .search-item:hover { background-color: #333; }
+
+        .sidebar-content { flex: 1; overflow-y: auto; padding: 20px; }
+        .section-title { font-size: 0.9rem; color: var(--text-muted); text-transform: uppercase; margin-bottom: 15px; border-bottom: 1px solid #333; }
+        .layer-controls { display: flex; gap: 10px; margin-bottom: 20px; }
+        .btn-toggle { flex: 1; padding: 10px; background-color: #333; border: none; color: white; border-radius: 6px; cursor: pointer; }
+        .btn-toggle.active { background-color: var(--accent-green); color: black; }
+
+        #telemetry-panel { background-color: #111; border-radius: 8px; padding: 15px; display: none; border: 1px solid #333; }
+        .arrival-item { display: flex; justify-content: space-between; align-items: center; background: #222; padding: 10px; margin-bottom: 5px; border-radius: 4px; border-left: 4px solid var(--accent-blue); }
+
+        .loader { display: none; width: 20px; height: 20px; border: 3px solid rgba(255,255,255,0.3); border-radius: 50%; border-top-color: var(--accent-blue); animation: spin 1s linear infinite; margin: 10px auto; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .marker-pin { width: 14px; height: 14px; border-radius: 50%; background: white; border: 3px solid var(--accent-blue); box-shadow: 0 0 10px rgba(0, 168, 255, 0.8); }
+        .marker-metro { border-color: var(--accent-red); }
+        .marker-hub { border-color: var(--accent-green); width: 20px; height: 20px; }
     </style>
 </head>
-<body class="bg-slate-900 text-slate-100 h-screen w-screen relative">
+<body>
 
-    <!-- OVERLAY CARICAMENTO INIZIALE -->
-    <div id="loader" class="absolute inset-0 bg-slate-900 z-[100] flex flex-col items-center justify-center transition-opacity duration-700">
-        <div class="relative w-20 h-20 mb-6">
-            <div class="absolute inset-0 border-4 border-slate-700 rounded-full"></div>
-            <div class="absolute inset-0 border-4 border-blue-500 rounded-full border-t-transparent animate-spin"></div>
-        </div>
-        <h1 class="text-3xl font-bold text-white mb-2 tracking-tight">BCN Control Room</h1>
-        <p id="loader-text" class="text-blue-400 font-medium animate-pulse">Connessione al catalogo Open Data BCN...</p>
-        
-        <!-- Progress Bar Fake per feedback visivo -->
-        <div class="w-64 h-1.5 bg-slate-800 rounded-full mt-6 overflow-hidden">
-            <div id="loader-progress" class="h-full bg-blue-500 w-0 transition-all duration-300"></div>
-        </div>
-    </div>
+    <div id="map-container"><div id="map"></div></div>
 
-    <!-- MAPPA A TUTTO SCHERMO -->
-    <div id="map" class="absolute top-0 left-0 w-full h-full z-0"></div>
-
-    <!-- PANNELLO LATERALE (SIDEBAR) -->
-    <div class="absolute top-0 left-0 h-full w-full pointer-events-none flex z-20">
-        <aside class="pointer-events-auto w-full md:w-[380px] h-auto max-h-[60vh] md:max-h-full bottom-0 md:top-0 absolute md:relative bg-slate-900/95 backdrop-blur-xl border-t md:border-t-0 md:border-r border-slate-700 flex flex-col shadow-2xl transition-transform">
-            
-            <!-- HEADER -->
-            <header class="p-6 border-b border-slate-800 shrink-0">
-                <div class="flex items-center gap-4 mb-4">
-                    <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center shadow-lg shadow-blue-500/20">
-                        <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"></path></svg>
-                    </div>
-                    <div>
-                        <h1 class="text-2xl font-bold text-white leading-none">BCN Live</h1>
-                        <p class="text-sm font-medium text-slate-400 mt-1 uppercase tracking-widest">Mobilità in tempo reale</p>
-                    </div>
-                </div>
-
-                <!-- CONTROLLI TAB (Attuale vs Previsione) -->
-                <div class="bg-slate-800 p-1 rounded-lg flex space-x-1 mt-6">
-                    <button id="btn-actual" onclick="setMode('actual')" class="flex-1 py-2 text-sm font-semibold rounded-md bg-blue-600 text-white shadow-md transition-all">Stato Attuale</button>
-                    <button id="btn-forecast" onclick="setMode('forecast')" class="flex-1 py-2 text-sm font-semibold rounded-md text-slate-400 hover:text-white hover:bg-slate-700 transition-all">Tra 15 Minuti</button>
-                </div>
-            </header>
-
-            <!-- CORPO SCROLLABILE -->
-            <div class="flex-1 overflow-y-auto p-6 flex flex-col gap-6">
-                
-                <!-- Dettagli Selezione -->
-                <section>
-                    <h2 class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3">Dettagli Tratta</h2>
-                    <div id="details-panel" class="bg-slate-800/50 border border-slate-700 rounded-xl p-5 text-center min-h-[140px] flex flex-col justify-center transition-all">
-                        <svg class="w-10 h-10 mx-auto mb-3 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122"></path></svg>
-                        <p class="text-sm text-slate-400">Clicca su una strada colorata sulla mappa per visualizzarne i dettagli.</p>
-                    </div>
-                </section>
-
-                <!-- Legenda Traffico -->
-                <section>
-                    <h2 class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3">Legenda Congestione</h2>
-                    <div class="bg-slate-800/50 border border-slate-700 rounded-xl p-4 space-y-3">
-                        <div class="flex items-center gap-3 text-sm"><div class="w-4 h-4 rounded-full bg-[#22c55e] shadow-[0_0_8px_#22c55e]"></div> <span class="text-slate-300">Molto Fluido (Livello 1)</span></div>
-                        <div class="flex items-center gap-3 text-sm"><div class="w-4 h-4 rounded-full bg-[#84cc16]"></div> <span class="text-slate-300">Fluido (Livello 2)</span></div>
-                        <div class="flex items-center gap-3 text-sm"><div class="w-4 h-4 rounded-full bg-[#eab308]"></div> <span class="text-slate-300">Traffico Denso (Livello 3)</span></div>
-                        <div class="flex items-center gap-3 text-sm"><div class="w-4 h-4 rounded-full bg-[#f97316]"></div> <span class="text-slate-300">Molto Denso (Livello 4)</span></div>
-                        <div class="flex items-center gap-3 text-sm"><div class="w-4 h-4 rounded-full bg-[#ef4444] shadow-[0_0_8px_#ef4444]"></div> <span class="text-slate-300">Congestionato (Livello 5)</span></div>
-                        <div class="flex items-center gap-3 text-sm"><div class="w-4 h-4 rounded-full bg-[#000000] border border-slate-600"></div> <span class="text-slate-300">Strada Chiusa (Livello 6)</span></div>
-                        <div class="flex items-center gap-3 text-sm pt-2 border-t border-slate-700"><div class="w-4 h-4 rounded-full bg-[#64748b]"></div> <span class="text-slate-400">Nessun Dato / Rilevamento in corso</span></div>
-                    </div>
-                </section>
-
-                <!-- Stats Footer -->
-                <div class="mt-auto pt-4 flex justify-between items-end border-t border-slate-800">
-                    <div>
-                        <p class="text-[10px] text-slate-500 uppercase font-bold tracking-wide">Ultimo Aggiornamento</p>
-                        <p id="timestamp" class="text-sm font-mono text-slate-300 mt-1">--:--:--</p>
-                    </div>
-                    <div class="text-right">
-                        <p class="text-[10px] text-slate-500 uppercase font-bold tracking-wide">Tratte Monitorate</p>
-                        <p id="stats-count" class="text-sm font-mono text-blue-400 mt-1">0</p>
-                    </div>
-                </div>
+    <div id="sidebar">
+        <div class="sidebar-header">
+            <h1><i class="fa-solid fa-satellite-dish"></i> TMB Control Center</h1>
+            <div class="search-box">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <input type="text" id="search-input" placeholder="Cerca Linea o Fermata..." autocomplete="off">
+                <div id="search-results"></div>
             </div>
-        </aside>
-    </div>
+        </div>
 
-    <!-- Leaflet JS -->
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+        <div class="sidebar-content">
+            <h2 class="section-title">Controlli Infrastruttura</h2>
+            <div class="layer-controls">
+                <button class="btn-toggle" id="btn-hubs" onclick="toggleHubs()">Intercanviadors</button>
+                <button class="btn-toggle" onclick="clearMap()">Pulisci Mappa</button>
+            </div>
+
+            <div id="telemetry-panel">
+                <h2 class="section-title">Telemetria</h2>
+                <div id="stop-name-display" style="font-weight:bold; margin-bottom:10px;"></div>
+                <div id="eta-container"></div>
+                <div class="loader" id="telemetry-loader"></div>
+            </div>
+
+            <h2 class="section-title">Dettagli Accessi</h2>
+            <div id="access-panel" style="color:var(--text-muted); font-size: 0.9rem;">Seleziona una fermata Metro.</div>
+        </div>
+    </div>
 
     <script>
-        // --- VARIABILI DI STATO ---
-        let map;
-        let trafficLayerGroup = L.layerGroup();
-        let streetsData = []; // Salva i tracciati
-        let currentMode = 'actual'; // 'actual' o 'forecast'
-        let polylineCache = []; // Cache dei tracciati Leaflet
+        const API_ID = 'a5d88368';
+        const API_KEY = '4a578607c30c461a8fd7729700711337';
+        const BASE_URL = 'https://api.tmb.cat/v1';
 
-        // Mappa Colori Traffico BCN (0-6)
-        const trafficColors = {
-            0: '#64748b', // Grigio (Senza Dati)
-            1: '#22c55e', // Verde Brillante
-            2: '#84cc16', // Verde Lime
-            3: '#eab308', // Giallo
-            4: '#f97316', // Arancione
-            5: '#ef4444', // Rosso
-            6: '#000000'  // Nero (Chiuso)
-        };
+        const map = L.map('map', { zoomControl: false }).setView([41.3879, 2.16992], 13);
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { maxZoom: 20 }).addTo(map);
 
-        const trafficLabels = {
-            0: "Nessun Dato", 1: "Molto Fluido", 2: "Fluido", 3: "Denso",
-            4: "Molto Denso", 5: "Congestionato", 6: "Traffico Bloccato/Strada Chiusa"
-        };
+        const linesLayer = L.featureGroup().addTo(map);
+        const stopsLayer = L.featureGroup().addTo(map);
+        const hubsLayer = L.featureGroup().addTo(map);
 
-        // --- INIZIALIZZAZIONE MAPPA ---
-        function initMap() {
-            // Mappa centrata su Barcellona
-            map = L.map('map', {
-                center: [41.3874, 2.1686],
-                zoom: 13,
-                zoomControl: false 
-            });
+        let allLinesData = [];
+        let hubsActive = false;
 
-            L.control.zoom({ position: 'bottomright' }).addTo(map);
-
-            // Mappa di Sfondo Dark (CartoDB Dark Matter) perfetta per far risaltare il traffico
-            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-                attribution: '&copy; OpenStreetMap &copy; CARTO',
-                subdomains: 'abcd',
-                maxZoom: 19
-            }).addTo(map);
-
-            trafficLayerGroup.addTo(map);
-        }
-
-        // --- UI HELPER FUNCTIONS ---
-        function updateLoader(text, progress) {
-            document.getElementById('loader-text').innerText = text;
-            document.getElementById('loader-progress').style.width = `${progress}%`;
-        }
-
-        function hideLoader() {
-            const loader = document.getElementById('loader');
-            loader.style.opacity = '0';
-            setTimeout(() => loader.style.display = 'none', 700);
-        }
-
-        function setMode(mode) {
-            currentMode = mode;
-            
-            // Aggiorna Bottoni
-            if(mode === 'actual') {
-                document.getElementById('btn-actual').className = "flex-1 py-2 text-sm font-semibold rounded-md bg-blue-600 text-white shadow-md transition-all";
-                document.getElementById('btn-forecast').className = "flex-1 py-2 text-sm font-semibold rounded-md text-slate-400 hover:text-white hover:bg-slate-700 transition-all";
-            } else {
-                document.getElementById('btn-forecast').className = "flex-1 py-2 text-sm font-semibold rounded-md bg-purple-600 text-white shadow-md transition-all";
-                document.getElementById('btn-actual').className = "flex-1 py-2 text-sm font-semibold rounded-md text-slate-400 hover:text-white hover:bg-slate-700 transition-all";
-            }
-
-            // Riapplica i colori a tutte le polilinee sulla mappa
-            polylineCache.forEach(layer => {
-                const state = mode === 'actual' ? layer.customData.state : layer.customData.forecast;
-                const color = trafficColors[state] || trafficColors[0];
-                layer.setStyle({ color: color });
-            });
-        }
-
-        function showDetails(data) {
-            const panel = document.getElementById('details-panel');
-            const stateToShow = currentMode === 'actual' ? data.state : data.forecast;
-            const color = trafficColors[stateToShow] || trafficColors[0];
-            const label = trafficLabels[stateToShow] || "Sconosciuto";
-
-            panel.innerHTML = `
-                <div class="text-left w-full h-full flex flex-col">
-                    <h3 class="font-bold text-white text-lg leading-tight mb-4">${data.name}</h3>
-                    
-                    <div class="mt-auto space-y-3">
-                        <div class="flex justify-between items-center p-3 rounded-lg bg-slate-900 border border-slate-700">
-                            <span class="text-xs text-slate-400 uppercase font-semibold">Stato Attuale</span>
-                            <div class="flex items-center gap-2">
-                                <span class="w-2 h-2 rounded-full" style="background-color: ${trafficColors[data.state]}"></span>
-                                <span class="text-sm font-bold text-white">${trafficLabels[data.state]}</span>
-                            </div>
-                        </div>
-                        
-                        <div class="flex justify-between items-center p-3 rounded-lg bg-slate-900 border border-slate-700">
-                            <span class="text-xs text-slate-400 uppercase font-semibold">Tra 15 Minuti</span>
-                            <div class="flex items-center gap-2">
-                                <span class="w-2 h-2 rounded-full" style="background-color: ${trafficColors[data.forecast]}"></span>
-                                <span class="text-sm font-bold text-slate-300">${trafficLabels[data.forecast]}</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            `;
-        }
-
-        // --- CORE LOGIC: RECUPERO DINAMICO DATI DAL COMUNE (SELF-HEALING) ---
-        
-        // Funzione per estrarre il valore da chiavi dinamiche (il comune spesso rinomina le colonne)
-        function fuzzyGet(obj, possibleKeys) {
-            for (let key of Object.keys(obj)) {
-                for (let pk of possibleKeys) {
-                    if (key.toLowerCase().includes(pk.toLowerCase())) return obj[key];
-                }
-            }
-            return null;
-        }
-
-        // Parser resiliente per le coordinate (Converte stringhe "Lon,Lat,Lon,Lat" in Array per Leaflet)
-        function parseCoordinates(coordStr) {
-            if (!coordStr || typeof coordStr !== 'string') return null;
-            // Rimuovi parentesi se presenti e dividi per virgola
-            const cleanStr = coordStr.replace(/[()A-Za-z]/g, '');
-            const parts = cleanStr.split(',').map(n => parseFloat(n.trim())).filter(n => !isNaN(n));
-            
-            if (parts.length < 4) return null; // Servono almeno 2 punti (4 numeri)
-            
-            const latlngs = [];
-            for (let i = 0; i < parts.length; i += 2) {
-                let p1 = parts[i];
-                let p2 = parts[i+1];
-                if (p1 === undefined || p2 === undefined) continue;
-                
-                // Barcellona è a Lat 41.x e Lng 2.x. Identifichiamo quale è quale per evitare bug di inversione.
-                let lat = p1, lng = p2;
-                if (p1 < 10) { // Se è minore di 10, è la Longitudine (2.x)
-                    lng = p1;
-                    lat = p2;
-                }
-                latlngs.push([lat, lng]);
-            }
-            return latlngs;
-        }
-
-        async function bootApp() {
+        async function fetchTMB(endpoint) {
+            const url = `${BASE_URL}${endpoint}?app_id=${API_ID}&app_key=${API_KEY}`;
             try {
-                // FASE 1: Trova e scarica Topologia (Geometrie Strade)
-                updateLoader("Ricerca ID Strade nel Catalogo...", 15);
-                const pkgGeoUrl = "https://opendata-ajuntament.barcelona.cat/data/api/action/package_show?id=transit-relacio-trams";
-                const geoRes = await fetch(pkgGeoUrl);
-                const geoPkg = await geoRes.json();
-                
-                // Cerca la risorsa CSV valida
-                const geoResource = geoPkg.result.resources.find(r => r.format.toUpperCase() === 'CSV');
-                if (!geoResource) throw new Error("Dataset geometrie non trovato.");
+                const response = await fetch(url);
+                if (!response.ok) return null;
+                return await response.json();
+            } catch (e) { return null; }
+        }
 
-                updateLoader("Download Topologia Rete Stradale...", 30);
-                const geoDataRes = await fetch(`https://opendata-ajuntament.barcelona.cat/data/api/action/datastore_search?resource_id=${geoResource.id}&limit=2000`);
-                const geoData = await geoDataRes.json();
-                const rawStreets = geoData.result.records;
+        async function initApp() {
+            const busRes = await fetchTMB('/transit/linies/bus');
+            const metroRes = await fetchTMB('/transit/linies/metro');
+            if(busRes?.features) busRes.features.forEach(f => allLinesData.push({ id: f.properties.CODI_LINIA, name: f.properties.NOM_LINIA, type: 'bus' }));
+            if(metroRes?.features) metroRes.features.forEach(f => allLinesData.push({ id: f.properties.CODI_LINIA, name: f.properties.NOM_LINIA, type: 'metro' }));
+        }
 
-                // FASE 2: Trova e scarica Traffico Live
-                updateLoader("Ricerca ID Traffico Live...", 60);
-                const pkgTrafficUrl = "https://opendata-ajuntament.barcelona.cat/data/api/action/package_show?id=trams";
-                const trafficRes = await fetch(pkgTrafficUrl);
-                const trafficPkg = await trafficRes.json();
-                
-                // Il file in tempo reale di solito contiene 'estat' o 'trams' ed è CSV
-                const trafficResource = trafficPkg.result.resources.find(r => 
-                    r.name.toLowerCase().includes('tram') && r.format.toUpperCase() === 'CSV'
-                );
-                if (!trafficResource) throw new Error("Dataset traffico live non trovato.");
+        document.getElementById('search-input').addEventListener('input', (e) => {
+            const val = e.target.value.toLowerCase();
+            const resBox = document.getElementById('search-results');
+            if (val.length < 2) { resBox.style.display = 'none'; return; }
+            const filtered = allLinesData.filter(l => l.id.toString().toLowerCase().includes(val) || l.name.toLowerCase().includes(val)).slice(0, 8);
+            resBox.innerHTML = filtered.map(l => `<div class="search-item" onclick="loadLineOnMap('${l.id}', '${l.type}')">${l.id} - ${l.name}</div>`).join('');
+            resBox.style.display = filtered.length ? 'block' : 'none';
+        });
 
-                updateLoader("Download Dati Sensori in Tempo Reale...", 80);
-                const trafficDataRes = await fetch(`https://opendata-ajuntament.barcelona.cat/data/api/action/datastore_search?resource_id=${trafficResource.id}&limit=2000`);
-                const trafficData = await trafficDataRes.json();
-                const rawStatus = trafficData.result.records;
+        async function loadLineOnMap(lineId, type) {
+            linesLayer.clearLayers(); stopsLayer.clearLayers();
+            const endpoint = type === 'metro' ? `/transit/linies/metro/${lineId}/estacions` : `/transit/linies/bus/${lineId}/parades`;
+            const data = await fetchTMB(endpoint);
+            if (!data?.features) return;
+            
+            const stops = data.features.sort((a,b) => a.properties.ORDRE - b.properties.ORDRE);
+            const latlngs = stops.map(s => [s.geometry.coordinates[1], s.geometry.coordinates[0]]);
+            L.polyline(latlngs, {color: type === 'metro' ? '#e84118' : '#00a8ff', weight: 4}).addTo(linesLayer);
+            
+            stops.forEach(s => {
+                const marker = L.marker([s.geometry.coordinates[1], s.geometry.coordinates[0]], {
+                    icon: L.divIcon({className:'custom-div-icon', html:`<div class="marker-pin ${type==='metro'?'marker-metro':''}"></div>`})
+                }).addTo(stopsLayer);
+                const nom = s.properties.NOM_PARADA || s.properties.NOM_ESTACIO;
+                const codi = s.properties.CODI_PARADA || s.properties.CODI_ESTACIO;
+                marker.on('click', () => openTelemetry(codi, nom, lineId, type));
+            });
+            map.fitBounds(linesLayer.getBounds(), {padding: [50,50]});
+        }
 
-                // FASE 3: Processamento e Disegno su Mappa (JOIN)
-                updateLoader("Rendering della Mappa...", 95);
-                
-                // Pulisci mappa se è un refresh
-                trafficLayerGroup.clearLayers();
-                polylineCache = [];
-                let drawnCount = 0;
-
-                // Itera su tutte le geometrie e cerca il loro stato attuale
-                rawStreets.forEach(street => {
-                    const streetId = fuzzyGet(street, ['Tram', 'tram_id', 'id']);
-                    const streetName = fuzzyGet(street, ['Descripci', 'name']);
-                    const rawCoords = fuzzyGet(street, ['Coordenades', 'coord']);
-
-                    if (!streetId || !rawCoords) return;
-
-                    // Trova lo stato del traffico corrispondente a questo ID Strada
-                    const statusRecord = rawStatus.find(s => fuzzyGet(s, ['idTram', 'tram']) == streetId);
-                    
-                    const actualState = statusRecord ? parseInt(fuzzyGet(statusRecord, ['estatActual', 'estat'])) : 0;
-                    const forecastState = statusRecord ? parseInt(fuzzyGet(statusRecord, ['estatPrevist', 'previst'])) : 0;
-
-                    const latlngs = parseCoordinates(rawCoords);
-                    if (latlngs && latlngs.length > 0) {
-                        
-                        // Determina colore in base al bottone attivo
-                        const stateToShow = currentMode === 'actual' ? actualState : forecastState;
-                        const color = trafficColors[stateToShow] || trafficColors[0];
-
-                        // Crea la linea su mappa
-                        const polyline = L.polyline(latlngs, {
-                            color: color,
-                            weight: 5,
-                            opacity: 0.8,
-                            lineCap: 'round',
-                            lineJoin: 'round'
-                        });
-
-                        // Salva i dati direttamente nell'oggetto Leaflet per poterli riutilizzare (Click/Cambio Tab)
-                        polyline.customData = {
-                            id: streetId,
-                            name: streetName,
-                            state: actualState,
-                            forecast: forecastState
-                        };
-
-                        // Eventi Mouse
-                        polyline.on('mouseover', function() { this.setStyle({ weight: 8, opacity: 1 }); });
-                        polyline.on('mouseout', function() { this.setStyle({ weight: 5, opacity: 0.8 }); });
-                        polyline.on('click', function(e) {
-                            showDetails(this.customData);
-                            // Mostra popup rapido
-                            L.popup()
-                                .setLatLng(e.latlng)
-                                .setContent(`<b>${this.customData.name}</b><br>Traffico: ${trafficLabels[this.customData.state]}`)
-                                .openOn(map);
-                        });
-
-                        trafficLayerGroup.addLayer(polyline);
-                        polylineCache.push(polyline);
-                        drawnCount++;
-                    }
-                });
-
-                // Aggiorna UI
-                document.getElementById('stats-count').innerText = drawnCount;
-                document.getElementById('timestamp').innerText = new Date().toLocaleTimeString('it-IT');
-                
-                // Centra la mappa per mostrare tutte le linee caricate (solo al primo avvio)
-                if(polylineCache.length > 0 && map.getZoom() === 13) {
-                    const group = new L.featureGroup(polylineCache);
-                    map.fitBounds(group.getBounds(), { padding: [50, 50] });
-                }
-
-                hideLoader();
-
-            } catch (error) {
-                console.error("Errore BootApp:", error);
-                document.getElementById('loader-text').innerHTML = `<span class="text-red-500">Errore di Connessione API: ${error.message}</span>`;
-                // Non nascondere il loader in caso di errore per far leggere il messaggio
+        async function openTelemetry(stopCode, name, lineId, type) {
+            document.getElementById('telemetry-panel').style.display = 'block';
+            document.getElementById('stop-name-display').innerText = name;
+            document.getElementById('eta-container').innerHTML = '';
+            document.getElementById('telemetry-loader').style.display = 'block';
+            
+            if (type === 'bus') {
+                const data = await fetchTMB(`/ibus/stops/${stopCode}`);
+                document.getElementById('telemetry-loader').style.display = 'none';
+                const arrivals = data?.data?.ibus?.filter(i => i.line == lineId) || [];
+                document.getElementById('eta-container').innerHTML = arrivals.length 
+                    ? arrivals.map(a => `<div class="arrival-item">${a.line} - ${a.destination} <span style="float:right">${a['t-in-min']} min</span></div>`).join('')
+                    : 'Nessun dato.';
+            } else {
+                document.getElementById('telemetry-loader').style.display = 'none';
+                document.getElementById('eta-container').innerHTML = 'Info linea frequente.';
             }
         }
 
-        // --- AVVIO APP ---
-        window.onload = () => {
-            initMap();
-            bootApp();
-            
-            // Imposta aggiornamento automatico ogni 5 minuti (300000 ms)
-            // L'API del traffico di BCN aggiorna i sensori circa ogni 5 minuti.
-            setInterval(bootApp, 300000); 
-        };
+        async function toggleHubs() {
+            hubsActive = !hubsActive;
+            if (hubsActive) {
+                const data = await fetchTMB('/transit/intercanviadors');
+                if (!data?.features) { alert('Dataset interscambi non disponibile.'); hubsActive = false; return; }
+                data.features.forEach(h => L.marker([h.geometry.coordinates[1], h.geometry.coordinates[0]], {icon: L.divIcon({className:'custom-div-icon', html:'<div class="marker-pin marker-hub"></div>'})}).addTo(hubsLayer));
+                document.getElementById('btn-hubs').classList.add('active');
+            } else {
+                hubsLayer.clearLayers();
+                document.getElementById('btn-hubs').classList.remove('active');
+            }
+        }
 
+        function clearMap() { linesLayer.clearLayers(); stopsLayer.clearLayers(); document.getElementById('telemetry-panel').style.display = 'none'; }
+        window.onload = initApp;
     </script>
 </body>
 </html>

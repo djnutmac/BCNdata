@@ -575,6 +575,17 @@
         let allStopsCache = null;
         let isFetchingStops = false;
 
+        // Dati di fallback nel caso l'API generale delle fermate fallisca o sia lenta
+        const fallbackStops = [
+            { code: "108", name: "Balmes - Gran Via" },
+            { code: "254", name: "Plaça Catalunya" },
+            { code: "700", name: "Pg. de Gràcia" },
+            { code: "1251", name: "Sagrada Família" },
+            { code: "1480", name: "Parc Güell" },
+            { code: "216", name: "Sants Estació" },
+            { code: "56", name: "Barceloneta" }
+        ];
+
         // Carica tutte le fermate una sola volta in background per ricerca istantanea
         async function fetchAllStops() {
             if (allStopsCache || isFetchingStops) return;
@@ -593,11 +604,17 @@
                         code: f.properties.codi_parada.toString(),
                         name: f.properties.nom_parada
                     }));
+                } else {
+                    throw new Error("Invalid format");
                 }
             } catch (err) {
-                console.error("Errore nel caricamento del database fermate:", err);
+                console.warn("API Database Fermate non raggiungibile, uso fallback locale:", err);
+                allStopsCache = fallbackStops; // Impedisce il blocco dell'interfaccia
             } finally {
                 isFetchingStops = false;
+                // Se l'utente stava cercando durante il caricamento, aggiorna i risultati
+                const currentQuery = searchInput.value.trim();
+                if (currentQuery.length >= 2) performSearch(currentQuery);
             }
         }
 
@@ -632,10 +649,39 @@
             fetchAllStops();
         });
 
+        // NUOVO: Permette di usare il tasto Invio
+        searchInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                const query = searchInput.value.trim();
+                if (/^\d+$/.test(query)) {
+                    selectStop(query, `Fermata ${query}`);
+                } else if (searchResults.children.length > 0) {
+                    searchResults.children[0].click(); // Seleziona il primo risultato
+                }
+            }
+        });
+
         async function performSearch(query) {
+            const isNumber = /^\d+$/.test(query); // Controlla se l'utente ha scritto solo un numero
+
             if (!allStopsCache) {
-                searchResults.innerHTML = '<div class="p-4 text-gray-400 text-center text-sm">Caricamento database...</div>';
-                searchResults.style.display = 'block';
+                if (isNumber) {
+                    // Bypass: Se è un numero, permetti di andarci subito anche se il DB non è pronto
+                    searchResults.innerHTML = `
+                        <div class="search-item" style="background: rgba(0,255,0,0.1); border-left: 4px solid #4cd137;">
+                            <span class="item-name" style="color: #4cd137;">→ Vai alla fermata ${query}</span>
+                            <span class="item-code">#${query}</span>
+                        </div>`;
+                    
+                    searchResults.firstElementChild.addEventListener('click', () => {
+                        selectStop(query, `Fermata ${query}`);
+                    });
+                    searchResults.style.display = 'block';
+                } else {
+                    searchResults.innerHTML = '<div class="p-4 text-gray-400 text-center text-sm">Caricamento database...</div>';
+                    searchResults.style.display = 'block';
+                }
                 fetchAllStops(); // Forza il fetch se non c'è
                 return;
             }
@@ -643,10 +689,15 @@
             const qLower = query.toLowerCase();
             
             // Filtro locale istantaneo: cerca sia nel nome che nel codice
-            const results = allStopsCache.filter(stop => 
+            let results = allStopsCache.filter(stop => 
                 stop.name.toLowerCase().includes(qLower) || 
                 stop.code.includes(qLower)
             ).slice(0, 15); // Limita a 15 risultati
+
+            // Se l'utente cerca un numero specifico che non c'è nel DB/Fallback, aggiungilo come opzione "Vai a..."
+            if (isNumber && !results.some(r => r.code === query)) {
+                results.unshift({ code: query, name: `Vai alla fermata ${query}` });
+            }
 
             renderSearchResults(results);
         }

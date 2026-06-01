@@ -1,804 +1,737 @@
 <!DOCTYPE html>
-<html lang="ca">
+<html lang="it">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>TMB Bus Tracker — Barcelona</title>
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
-<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-<style>
-:root{--r:#E60000;--rd:#b30000;--rw:#fff;--g1:#f3f4f6;--g2:#e5e7eb;--g3:#d1d5db;--g4:#9ca3af;--g5:#6b7280;--g7:#374151;--g9:#111827}
-*{margin:0;padding:0;box-sizing:border-box}
-html,body,#root{height:100%;width:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;-webkit-font-smoothing:antialiased}
-.leaflet-container{height:100%!important;width:100%!important;z-index:1}
-.leaflet-popup-content-wrapper{border-radius:12px!important;box-shadow:0 4px 20px rgba(0,0,0,.15)!important}
-.leaflet-popup-content{margin:10px 12px!important;font-family:inherit!important}
-::-webkit-scrollbar{width:4px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--g3);border-radius:4px}
-.app{height:100vh;height:100dvh;display:flex;flex-direction:column;background:var(--g1);overflow:hidden}
-.main{flex:1;overflow:hidden;position:relative}
-.tab-panel{position:absolute;inset:0;overflow:hidden;background:var(--g1)}
-.tab-hidden{opacity:0;pointer-events:none}
-.nav{background:var(--rw);border-top:1px solid var(--g2);flex-shrink:0;display:flex;padding-bottom:env(safe-area-inset-bottom,0)}
-.nb{flex:1;display:flex;flex-direction:column;align-items:center;padding:6px 4px;background:none;border:none;cursor:pointer;color:var(--g4);font-family:inherit;transition:color .15s}
-.nb.ac{color:var(--r)}
-.nb i{font-size:20px;line-height:1;margin-bottom:2px;font-style:normal}
-.nb span{font-weight:700;font-size:9px;letter-spacing:.05em}
-.nb-bar{width:20px;height:2px;background:var(--r);border-radius:99px;margin-top:2px}
-.th{background:var(--r);padding:16px 16px 20px;color:var(--rw)}
-.th h2{font-size:18px;font-weight:700;text-transform:uppercase;letter-spacing:.02em;margin-bottom:12px}
-.si{width:100%;padding:12px 16px;border-radius:12px;border:none;outline:none;font-size:14px;font-weight:500;color:var(--g9);background:var(--rw)}
-.si::placeholder{color:var(--g4)}
-.btn{display:inline-flex;align-items:center;justify-content:center;padding:10px 18px;border-radius:12px;border:none;font-weight:700;font-size:14px;cursor:pointer;font-family:inherit;transition:all .15s;gap:6px}
-.btn-r{background:var(--r);color:var(--rw)}.btn-r:hover{background:var(--rd)}
-.btn-w{background:var(--rw);color:var(--r)}.btn-w:hover{background:#fef2f2}
-.btn-s{padding:6px 12px;font-size:12px;border-radius:8px}
-.btn-xs{padding:4px 10px;font-size:11px;border-radius:6px}
-.card{background:var(--rw);border:1px solid var(--g2);border-radius:16px;padding:16px}
-.spin{width:36px;height:36px;border:3px solid #fecaca;border-top:3px solid var(--r);border-radius:50%;animation:spin .8s linear infinite}
-@keyframes spin{to{transform:rotate(360deg)}}
-.ld{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:12px;padding:24px;text-align:center}
-.ld p{font-size:14px;color:var(--g5);font-weight:500}
-.ov{position:fixed;inset:0;z-index:5000;display:flex;align-items:flex-end;justify-content:center;background:rgba(0,0,0,.35)}
-@media(min-width:640px){.ov{align-items:center}}
-.pn{width:100%;max-width:420px;max-height:85vh;background:var(--rw);border-radius:20px 20px 0 0;box-shadow:0 10px 40px rgba(0,0,0,.15);overflow:hidden;display:flex;flex-direction:column}
-@media(min-width:640px){.pn{border-radius:20px}}
-.pn-h{background:var(--r);color:var(--rw);padding:14px 16px;display:flex;align-items:flex-start;justify-content:space-between;flex-shrink:0}
-.pn-h h3{font-size:16px;font-weight:700;text-transform:uppercase;letter-spacing:.02em;line-height:1.2;flex:1;min-width:0}
-.pn-h .sc{font-size:12px;color:rgba(255,255,255,.7);margin-top:2px;font-weight:500}
-.pn-ha{display:flex;gap:4px;margin-left:8px;flex-shrink:0}
-.pn-ha button{background:none;border:none;color:var(--rw);font-size:18px;cursor:pointer;padding:6px;border-radius:50%;width:32px;height:32px;display:flex;align-items:center;justify-content:center}
-.pn-ha button:hover{background:rgba(255,255,255,.2)}
-.pn-b{overflow-y:auto;flex:1;padding:16px}
-.pn-upd{font-size:11px;color:var(--g4);text-align:right;margin-bottom:12px}
-.line-card{border:1px solid var(--g2);border-radius:12px;padding:14px;margin-bottom:10px}
-.line-card:last-child{margin-bottom:0}
-.lc-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;gap:8px}
-.lb{display:inline-block;background:var(--r);color:var(--rw);font-weight:700;font-size:13px;padding:4px 10px;border-radius:8px;flex-shrink:0}
-.db{display:inline-block;font-size:10px;font-weight:700;color:var(--g5);background:var(--g1);padding:3px 8px;border-radius:6px}
-.dest{font-size:11px;color:var(--g5);font-weight:500;text-align:right;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.arr{display:flex;flex-wrap:wrap;gap:6px}
-.ab{display:flex;align-items:center;gap:4px;padding:6px 10px;border-radius:8px;font-size:12px;font-weight:700}
-.ab-red{background:#fef2f2;color:#dc2626}
-.ab-yel{background:#fff7ed;color:#ea580c}
-.ab-grn{background:#f0fdf4;color:#16a34a}
-.empty-state{text-align:center;padding:24px;color:var(--g4)}
-.empty-state span{font-size:48px;display:block;margin-bottom:8px}
-.flx-g{display:flex;align-items:center;gap:8px}
-.flx-g2{display:flex;gap:6px}
-.grid-l{display:grid;grid-template-columns:repeat(auto-fill,minmax(70px,1fr));gap:6px}
-.ln-btn{background:var(--rw);border:1px solid var(--g2);border-radius:12px;padding:8px;text-align:center;cursor:pointer;font-family:inherit;transition:all .15s;display:flex;flex-direction:column;align-items:center;gap:4px}
-.ln-btn:hover{border-color:var(--r);box-shadow:0 2px 10px rgba(0,0,0,.1)}
-.ln-badge{display:inline-block;background:var(--r);color:var(--rw);font-weight:700;font-size:13px;padding:3px 10px;border-radius:8px}
-.ln-fav{font-size:10px;color:#fca5a5}
-.dir-card{border:1px solid var(--g2);border-radius:16px;overflow:hidden;margin-bottom:12px}
-.dir-h{padding:12px 16px;color:var(--rw)}
-.dir-h.anada{background:#2563eb}
-.dir-h.tornada{background:#16a34a}
-.dir-h h4{font-size:14px;font-weight:700;text-transform:uppercase;margin-bottom:2px}
-.dir-to{font-size:11px;opacity:.9;margin-bottom:4px}
-.dir-n{font-size:11px;opacity:.7}
-.dir-list{max-height:260px;overflow-y:auto}
-.dir-item{width:100%;display:flex;align-items:center;gap:8px;padding:10px 16px;text-align:left;background:none;border:none;border-bottom:1px solid var(--g1);cursor:pointer;font-family:inherit;transition:background .1s}
-.dir-item:hover{background:var(--g1)}
-.dir-item:last-child{border-bottom:none}
-.dir-idx{font-size:11px;color:var(--g3);min-width:20px}
-.dir-name{flex:1;font-size:13px;font-weight:500;color:var(--g7);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.dir-code{font-size:11px;color:var(--g4);flex-shrink:0}
-.fv-section{margin-bottom:20px}
-.fv-title{font-size:13px;font-weight:700;color:var(--g7);text-transform:uppercase;letter-spacing:.02em;margin-bottom:8px;display:flex;align-items:center;gap:8px}
-.fv-title::before{content:'';display:inline-block;width:3px;height:18px;background:var(--r);border-radius:2px}
-.fv-item{background:var(--rw);border:1px solid var(--g2);border-radius:12px;padding:10px 14px;display:flex;align-items:center;gap:10px;margin-bottom:6px}
-.fv-item:last-child{margin-bottom:0}
-.fv-icon{font-size:24px;flex-shrink:0}
-.fv-info{flex:1;min-width:0}
-.fv-name{font-size:13px;font-weight:600;color:var(--g7);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.fv-sub{font-size:11px;color:var(--g4)}
-.fv-del{background:none;border:none;color:var(--g3);font-size:18px;cursor:pointer;padding:4px;flex-shrink:0}
-.fv-del:hover{color:var(--r)}
-.result-card{background:var(--rw);border:1px solid var(--g2);border-radius:16px;padding:16px}
-.map-badge{position:absolute;top:12px;left:12px;z-index:1000;background:rgba(255,255,255,.92);border-radius:10px;box-shadow:0 2px 8px rgba(0,0,0,.1);padding:6px 12px;font-size:11px;font-weight:600;color:var(--g7)}
-.map-loading{position:absolute;top:12px;left:50%;transform:translateX(-50%);z-index:1000;background:rgba(255,255,255,.95);border-radius:20px;box-shadow:0 2px 8px rgba(0,0,0,.1);padding:6px 16px;font-size:12px;font-weight:600;color:var(--g5);display:flex;align-items:center;gap:8px}
-.map-refresh{position:absolute;top:12px;right:12px;z-index:1000;background:rgba(255,255,255,.92);border-radius:10px;box-shadow:0 2px 8px rgba(0,0,0,.1);padding:6px 10px;font-size:18px;border:none;cursor:pointer;color:var(--g7)}
-.map-refresh:hover{background:var(--rw)}
-.route-inp{position:relative;margin-bottom:8px}
-.route-inp span.pf{position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:16px}
-.route-inp input{padding-left:36px!important}
-.gps-btn{position:absolute;right:8px;top:50%;transform:translateY(-50%);background:var(--g1);color:var(--g5);border:none;padding:4px 8px;border-radius:6px;font-size:9px;font-weight:700;cursor:pointer;font-family:inherit;text-transform:uppercase}
-.gps-btn:hover{background:var(--g2)}
-.route-hint{font-size:10px;color:rgba(255,255,255,.7);text-align:center;margin-top:8px}
-.iti-card{border:1px solid var(--g2);border-radius:16px;overflow:hidden;margin-bottom:10px}
-.iti-top{width:100%;padding:14px;display:flex;align-items:center;gap:10px;text-align:left;background:var(--rw);border:none;cursor:pointer;font-family:inherit;transition:background .1s}
-.iti-top:hover{background:var(--g1)}
-.iti-info{flex:1}
-.iti-label{font-size:11px;font-weight:700;color:var(--g4);text-transform:uppercase}
-.iti-dur{display:inline-block;background:var(--r);color:var(--rw);font-weight:700;font-size:12px;padding:3px 8px;border-radius:6px;margin-left:6px}
-.iti-modes{display:flex;gap:6px;font-size:18px;margin-top:4px}
-.iti-arrow{color:var(--g4);font-size:18px;transition:transform .2s}
-.iti-arrow.open{transform:rotate(90deg)}
-.iti-detail{border-top:1px solid var(--g1);padding:12px 14px}
-.leg{display:flex;gap:10px;margin-bottom:8px}
-.leg-icon{font-size:20px;flex-shrink:0;text-align:center}
-.leg-line{width:2px;flex:1;background:var(--g2);min-height:16px;margin:0 auto}
-.leg-info{flex:1;padding-bottom:8px}
-.leg-mode{font-size:11px;font-weight:700;color:var(--g7);text-transform:uppercase}
-.leg-ln{display:inline-block;background:var(--r);color:var(--rw);font-weight:700;font-size:10px;padding:2px 6px;border-radius:4px;margin-left:4px}
-.leg-hs{font-size:10px;color:var(--g4);margin-left:4px}
-.leg-times{display:flex;gap:10px;font-size:11px;color:var(--g5);margin-top:2px}
-.leg-route{font-size:10px;color:var(--g4);margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.back-btn{background:none;border:none;color:var(--g4);font-size:20px;cursor:pointer;padding:4px 8px 4px 0;font-family:inherit}
-.back-btn:hover{color:var(--g7)}
-.line-top{display:flex;align-items:center;gap:8px;padding:12px 16px;background:var(--rw);border-bottom:1px solid var(--g2);position:sticky;top:0;z-index:10}
-.text-muted{font-size:11px;color:var(--g4)}
-.overflow-auto{overflow-y:auto}
-.flex-1{flex:1}
-.w-full{width:100%}
-.text-c{text-align:center}
-.p-4{padding:16px}
-.mt-1{margin-top:4px}
-.mt-2{margin-top:8px}
-.mt-3{margin-top:12px}
-.mt-4{margin-top:16px}
-.mb-3{margin-bottom:12px}
-.ml-2{margin-left:8px}
-.mr-2{margin-right:8px}
-.gap-4{gap:16px}
-.text-sm{font-size:13px}
-.font-bold{font-weight:700}
-.error-box{background:#fef2f2;border:1px solid #fecaca;border-radius:12px;padding:14px;margin-bottom:12px}
-.error-box p{color:#dc2626;font-size:13px;font-weight:600;margin-bottom:8px}
-</style>
-</head>
-<body>
-<div id="root"><div class="ld"><div class="spin"></div><p>CARREGANT TMB BUS TRACKER...</p></div></div>
-<script>
-var APP_ID="a5d88368";
-var APP_KEY="4a578607c30c461a8fd7729700711337";
-var BASE="https://api.tmb.cat/v1";
-var PROXIES=["https://corsproxy.io/?"];
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TMB Barcelona - 16:9 Display</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
 
-function apiUrl(path){
-  var sep=path.indexOf("?")>=0?"&":"?";
-  return BASE+path+sep+"app_id="+APP_ID+"&app_key="+APP_KEY;
-}
-
-function fetchWithTimeout(url,opts,ms){
-  return new Promise(function(resolve,reject){
-    var t=setTimeout(function(){reject(new Error("timeout"));},ms);
-    fetch(url,opts).then(function(r){clearTimeout(t);resolve(r);}).catch(function(e){clearTimeout(t);reject(e);});
-  });
-}
-
-async function fetchTMB(path){
-  var directUrl=apiUrl(path);
-  // try direct
-  try{var r=await fetchWithTimeout(directUrl,{headers:{Accept:"application/json"}},8000);if(r.ok)return await r.json();}catch(e){}
-  // try proxies
-  for(var i=0;i<PROXIES.length;i++){
-    try{var r=await fetchWithTimeout(PROXIES[i]+encodeURIComponent(directUrl),{},8000);if(r.ok)return await r.json();}catch(e){}
-  }
-  throw new Error("API error");
-}
-
-// Get all active stops (arrival data with stop IDs, line numbers, wait times)
-async function getAllActiveStops(){
-  var data=await fetchTMB("/ibus/stops/");
-  return (data&&data.data&&data.data.ibus)||[];
-}
-
-// Get stop forecast details
-async function getStopForecast(code){
-  return await fetchTMB("/itransit/bus/parades/"+code);
-}
-
-// Get all bus lines
-async function getTransitLines(){
-  var data=await fetchTMB("/transit/linies/bus?type=json");
-  var seen={};
-  var feats=data.features||[];
-  for(var i=0;i<feats.length;i++){
-    var f=feats[i];
-    var code=f.properties.CODI_LINIA||"";
-    var name=f.properties.NOM_LINIA||"";
-    if(code&&!seen[code]) seen[code]={codi_linia:code,nom_linia:name};
-  }
-  var arr=Object.values(seen);
-  arr.sort(function(a,b){
-    var an=parseInt(a.codi_linia),bn=parseInt(b.codi_linia);
-    if(!isNaN(an)&&!isNaN(bn))return an-bn;
-    if(!isNaN(an))return -1;if(!isNaN(bn))return 1;
-    return a.codi_linia.localeCompare(b.codi_linia);
-  });
-  return arr;
-}
-
-// Get stops for a line+direction
-async function getLineStops(code,direction){
-  var path="/transit/parades/bus?type=json&codi_linia="+code;
-  if(direction) path+="&id_sentit="+direction;
-  return await fetchTMB(path);
-}
-
-// Get route itineraries
-async function getItineraries(fromLat,fromLon,toLat,toLon){
-  return await fetchTMB("/planner/plan?fromPlace="+fromLat+","+fromLon+"&toPlace="+toLat+","+toLon+"&mode=WALK,BUS,TRANSIT&locale=ca");
-}
-
-// Geocode a stop name to coordinates using Nominatim
-async function geocodeStop(stopName){
-  var query=encodeURIComponent(stopName+" Barcelona bus stop");
-  try{
-    var r=await fetchWithTimeout("https://nominatim.openstreetmap.org/search?format=json&limit=1&q="+query,{headers:{"User-Agent":"TMB-Bus-Tracker/1.0"}},5000);
-    if(r.ok){
-      var data=await r.json();
-      if(data&&data.length>0) return {lat:parseFloat(data[0].lat),lon:parseFloat(data[0].lon)};
-    }
-  }catch(e){}
-  return null;
-}
-
-function getMinsUntil(ts){return Math.max(0,Math.floor((ts-Math.floor(Date.now()/1000))/60));}
-function dirLabel(id){return id===1?"ANADA":"TORNADA";}
-
-// === LocalStorage ===
-function loadLS(key,fb){try{var v=localStorage.getItem(key);return v?JSON.parse(v):fb;}catch(e){return fb;}}
-function saveLS(key,val){try{localStorage.setItem(key,JSON.stringify(val));}catch(e){}}
-
-// === React hooks ===
-var useState=React.useState,useEffect=React.useEffect,useRef=React.useRef,useCallback=React.useCallback;
-
-function useFavorites(){
-  var _a=useState(function(){return loadLS("tmb_fav_stops_v2",[]);}),stops=_a[0],setStops=_a[1];
-  var _b=useState(function(){return loadLS("tmb_fav_lines_v2",[]);}),lines=_b[0],setLines=_b[1];
-  useEffect(function(){saveLS("tmb_fav_stops_v2",stops);},[stops]);
-  useEffect(function(){saveLS("tmb_fav_lines_v2",lines);},[lines]);
-  var addStop=useCallback(function(s){setStops(function(p){return p.some(function(x){return x.codi_parada===s.codi_parada;})?p:p.concat([Object.assign({},s,{addedAt:Date.now()})]);});},[]);
-  var removeStop=useCallback(function(c){setStops(function(p){return p.filter(function(x){return x.codi_parada!==c;});});},[]);
-  var isStopFav=useCallback(function(c){return stops.some(function(x){return x.codi_parada===c;});},[stops]);
-  var addLine=useCallback(function(l){setLines(function(p){return p.some(function(x){return x.codi_linia===l.codi_linia;})?p:p.concat([Object.assign({},l,{addedAt:Date.now()})]);});},[]);
-  var removeLine=useCallback(function(c){setLines(function(p){return p.filter(function(x){return x.codi_linia!==c;});});},[]);
-  var isLineFav=useCallback(function(c){return lines.some(function(x){return x.codi_linia===c;});},[lines]);
-  return {stops:stops,lines:lines,addStop:addStop,removeStop:removeStop,isStopFav:isStopFav,addLine:addLine,removeLine:removeLine,isLineFav:isLineFav};
-}
-
-// === StopInfoPanel ===
-function StopInfoPanel(props){
-  var stopCode=props.stopCode,stopName=props.stopName,isFav=props.isFav,onToggleFav=props.onToggleFav,onClose=props.onClose;
-  var _a=useState(null),data=_a[0],setData=_a[1];
-  var _b=useState(true),loading=_b[0],setLoading=_b[1];
-  var _c=useState(null),error=_c[0],setError=_c[1];
-  var _d=useState(null),ts=_d[0],setTs=_d[1];
-
-  var load=useCallback(async function(){
-    setLoading(true);setError(null);
-    try{var d=await getStopForecast(stopCode);setData(d);setTs(new Date());}catch(e){setError("No s'ha pogut carregar");}
-    setLoading(false);
-  },[stopCode]);
-
-  useEffect(function(){load();var i=setInterval(load,30000);return function(){clearInterval(i);};},[load]);
-
-  var parade=data&&data.parades?data.parades[0]:null;
-
-  return React.createElement("div",{className:"ov",onClick:function(e){if(e.target===e.currentTarget)onClose();}},
-    React.createElement("div",{className:"pn"},
-      React.createElement("div",{className:"pn-h"},
-        React.createElement("div",{style:{flex:1,minWidth:0}},
-          React.createElement("h3",null,stopName||"Parada "+stopCode),
-          React.createElement("div",{className:"sc"},"PARADA ",stopCode)
-        ),
-        React.createElement("div",{className:"pn-ha"},
-          React.createElement("button",{onClick:onToggleFav,title:isFav?"Eliminar":"Afegir"},isFav?"♥":"♡"),
-          React.createElement("button",{onClick:onClose},"✕")
-        )
-      ),
-      React.createElement("div",{className:"pn-b"},
-        loading&&!data&&React.createElement("div",{className:"ld"},React.createElement("div",{className:"spin"})),
-        error&&React.createElement("div",null,
-React.createElement("p",{style:{color:"#E60000",fontSize:14,fontWeight:600}},error),
-          React.createElement("button",{className:"btn btn-r btn-s",onClick:load,style:{marginTop:8}},"REINTENTAR")
-        ),
-        parade&&!loading&&React.createElement("div",null,
-          ts&&React.createElement("div",{className:"pn-upd"},"Actualitzat: ",ts.toLocaleTimeString("ca-ES")),
-          parade.linies_trajectes.length===0&&React.createElement("div",{className:"empty-state"},
-            React.createElement("span",null,"🚌"),React.createElement("p",null,"No hi ha busos")
-          ),
-          parade.linies_trajectes.map(function(lt,i){
-            return React.createElement("div",{className:"line-card",key:i},
-              React.createElement("div",{className:"lc-top"},
-                React.createElement("div",{className:"flx-g"},
-                  React.createElement("span",{className:"lb"},lt.nom_linia||lt.codi_linia),
-                  React.createElement("span",{className:"db"},dirLabel(lt.id_sentit))
-                ),
-                React.createElement("div",{className:"dest"},"→ ",lt.desti_trajecte||"—")
-              ),
-              lt.propers_busos.length===0
-                ?React.createElement("p",{className:"text-muted"},"Sense previsió")
-                :React.createElement("div",{className:"arr"},
-                  lt.propers_busos.slice(0,4).map(function(b,j){
-                    var m=getMinsUntil(b.temps_arribada);
-                    return React.createElement("div",{className:"ab "+(m<=2?"ab-red":m<=7?"ab-yel":"ab-grn"),key:j},
-                      m<=2?"🔴":m<=7?"🟡":"🟢",
-                      React.createElement("span",null,m===0?"ARRIBANT":m+" min")
-                    );
-                  })
-                )
-            );
-          }),
-          React.createElement("button",{className:"btn btn-s",onClick:load,style:{width:"100%",marginTop:16,color:"#9ca3af",background:"transparent"}},"🔄 Actualitzar")
-        )
-      )
-    )
-  );
-}
-
-// === MapTab ===
-function MapTab(props){
-  var highlightStopCode=props.highlightStopCode,onHighlightHandled=props.onHighlightHandled,isFav=props.isFav,onToggleFav=props.onToggleFav;
-  var _a=useState(null),selectedStop=_a[0],setSelectedStop=_a[1];
-  var _b=useState(null),selectedCoords=_b[0],setSelectedCoords=_b[1];
-  var _c=useState("loading"),status=_c[0],setStatus=_c[1];
-  var _d=useState(null),errorMsg=_d[0],setErrorMsg=_d[1];
-  var _e=useState(0),stopCount=_e[0],setStopCount=_e[1];
-  var mapRef=useRef(null);
-  var containerRef=useRef(null);
-  var markersRef=useRef(null);
-  var initRef=useRef(false);
-  var highlightMarkerRef=useRef(null);
-
-  // Init map immediately
-  useEffect(function(){
-    if(initRef.current||!containerRef.current)return;
-    if(typeof L==="undefined")return;
-    initRef.current=true;
-    var map=L.map(containerRef.current,{zoomControl:true}).setView([41.3874,2.1686],13);
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{attribution:'&copy; OSM',maxZoom:19}).addTo(map);
-    mapRef.current=map;
-    setTimeout(function(){if(mapRef.current)mapRef.current.invalidateSize();},300);
-    return function(){map.remove();mapRef.current=null;initRef.current=false;};
-  },[]);
-
-  // Retry init
-  useEffect(function(){
-    if(!initRef.current&&containerRef.current&&typeof L!=="undefined"){
-      initRef.current=true;
-      var map=L.map(containerRef.current,{zoomControl:true}).setView([41.3874,2.1686],13);
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{attribution:'&copy; OSM',maxZoom:19}).addTo(map);
-      mapRef.current=map;
-      setTimeout(function(){if(mapRef.current)mapRef.current.invalidateSize();},300);
-    }
-  });
-
-  // Load active stops from /ibus/stops/ to count them
-  var loadActive=useCallback(async function(){
-    setStatus("loading");
-    try{
-      var stops=await getAllActiveStops();
-      setStopCount(stops.length);
-      setStatus("ready");
-    }catch(e){
-      setErrorMsg("No s'ha pogut connectar amb l'API. Comprova la connexió.");
-      setStatus("error");
-    }
-  },[]);
-
-  useEffect(function(){loadActive();},[loadActive]);
-
-  // Timeout
-  useEffect(function(){var t=setTimeout(function(){setStatus(function(s){return s==="loading"?"ready":s;});},12000);return function(){clearTimeout(t);};},[]);
-
-  // Handle highlight stop from search
-  useEffect(function(){
-    if(!highlightStopCode||!mapRef.current)return;
-    (async function(){
-      try{
-        // Get stop name from forecast
-        var data=await getStopForecast(highlightStopCode);
-        var name=data&&data.parades&&data.parades[0]?data.parades[0].nom_parada:"Parada "+highlightStopCode;
-
-        // Try to geocode
-        var coords=await geocodeStop(name);
-        if(coords&&mapRef.current){
-          var map=mapRef.current;
-          // Remove previous highlight marker
-          if(highlightMarkerRef.current){map.removeLayer(highlightMarkerRef.current);}
-
-          var icon=L.icon({iconUrl:"https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png",shadowUrl:"https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png",iconSize:[25,41],iconAnchor:[12,41],popupAnchor:[1,-34],shadowSize:[41,41]});
-
-          highlightMarkerRef.current=L.marker([coords.lat,coords.lon],{icon:icon}).addTo(map).bindPopup("<b>"+name+"</b><br>Parada "+highlightStopCode).openPopup();
-          map.setView([coords.lat,coords.lon],16,{animate:true});
+    <style>
+        :root {
+            --bg-body: #000000;
+            --bg-header: #2a2a2a;
+            --bg-row: #111111;
+            --text-main: #ffffff;
+            --text-muted: #a0a0a0;
+            --divider: #333333;
+            
+            /* TMB Colors */
+            --color-H: #004ebc;
+            --color-V: #6fb62b;
+            --color-D: #9b59b6;
+            --color-N: #f1c40f;
+            --color-std: #c0392b;
         }
 
-        // Open stop info panel
-        setSelectedStop({codi_parada:highlightStopCode,nom_parada:name});
-      }catch(e){}
+        body {
+            background-color: #000;
+            font-family: 'Inter', sans-serif;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            overflow: hidden;
+        }
 
-      if(onHighlightHandled)onHighlightHandled();
-    })();
-  },[highlightStopCode,onHighlightHandled]);
+        /* 16:9 Container */
+        .display-container {
+            width: 95vw;
+            aspect-ratio: 16/9; /* Changed to 16:9 */
+            max-height: 95vh; /* Ensure it fits on screen */
+            background-color: var(--bg-body);
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            border: 1px solid #333;
+            box-shadow: 0 0 50px rgba(0,0,0,0.8);
+        }
 
-  return React.createElement("div",{style:{position:"relative",height:"100%",width:"100%"}},
-    React.createElement("div",{ref:containerRef,style:{height:"100%",width:"100%"}}),
-    status==="loading"&&React.createElement("div",{className:"map-loading"},
-      React.createElement("div",{className:"spin",style:{width:16,height:16,borderWidth:2}}),
-      "Carregant dades..."
-    ),
-    status==="error"&&React.createElement("div",{className:"map-loading",style:{color:"#dc2626",background:"#fef2f2"}},
-      errorMsg,
-      React.createElement("button",{onClick:loadActive,style:{marginLeft:8,background:"none",border:"none",cursor:"pointer",color:"#E60000",fontWeight:700,fontSize:12}},"REINTENTAR")
-    ),
-    stopCount>0&&React.createElement("div",{className:"map-badge"},stopCount," busos actius"),
-    React.createElement("button",{className:"map-refresh",onClick:loadActive,title:"Actualitzar"},"🔄"),
-    selectedStop&&React.createElement(StopInfoPanel,{
-      stopCode:selectedStop.codi_parada,
-      stopName:selectedStop.nom_parada,
-      isFav:isFav(selectedStop.codi_parada),
-      onToggleFav:function(){onToggleFav({codi_parada:selectedStop.codi_parada,nom_parada:selectedStop.nom_parada});},
-      onClose:function(){setSelectedStop(null);}
-    })
-  );
-}
+        /* HEADER SECTION */
+        .header {
+            background-color: var(--bg-header);
+            padding: 1.5vw 2.5vw;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #444;
+            height: 15%; /* Adjusted for 16:9 */
+            position: relative;
+            z-index: 50; /* For search dropdown */
+        }
 
-// === SearchTab ===
-function SearchTab(props){
-  var onNavigateToStop=props.onNavigateToStop;
-  var _a=useState(""),query=_a[0],setQuery=_a[1];
-  var _b=useState(false),loading=_b[0],setLoading=_b[1];
-  var _c=useState(null),error=_c[0],setError=_c[1];
-  var _d=useState(null),result=_d[0],setResult=_d[1];
+        .header-left {
+            display: flex;
+            flex-direction: column;
+            width: 60%; /* Take more space for search */
+            position: relative;
+        }
 
-  var search=async function(){
-    var q=query.trim();if(!q)return;
-    setLoading(true);setError(null);setResult(null);
-    try{
-      var d=await getStopForecast(q);
-      if(d&&d.parades&&d.parades.length) setResult({code:d.parades[0].codi_parada,name:d.parades[0].nom_parada});
-      else setError("Parada no trobada. Comprova el número.");
-    }catch(e){setError("Error de connexió. Torna-ho a provar.");}
-    setLoading(false);
-  };
+        .stop-label {
+            font-size: 1vw; /* Adjusted sizes for 16:9 */
+            color: var(--text-muted);
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            margin-bottom: 0.2vw;
+            display: flex;
+            align-items: center;
+            gap: 0.5vw;
+        }
 
-  return React.createElement("div",{style:{height:"100%",display:"flex",flexDirection:"column"}},
-    React.createElement("div",{className:"th"},
-      React.createElement("h2",null,"Cercar Parada"),
-      React.createElement("div",{className:"flx-g2"},
-        React.createElement("input",{className:"si",type:"text",inputMode:"numeric",value:query,onChange:function(e){setQuery(e.target.value);},onKeyDown:function(e){if(e.key==="Enter")search();},placeholder:"Núm. de parada (ex: 108)",style:{flex:1}}),
-        React.createElement("button",{className:"btn btn-w btn-s",onClick:search,disabled:loading||!query.trim()},loading?"...":"CERCAR")
-      )
-    ),
-    React.createElement("div",{className:"overflow-auto flex-1 p-4"},
-      loading&&React.createElement("div",{className:"ld"},React.createElement("div",{className:"spin"})),
-      error&&React.createElement("div",{className:"error-box"},
-        React.createElement("p",null,error),
-        React.createElement("span",{className:"text-muted"},"Prova amb: 108 (Pl. Espanya), 2775, 3258")
-      ),
-      result&&!loading&&React.createElement("div",{className:"result-card"},
-        React.createElement("div",{className:"flx-g"},
-          React.createElement("span",{style:{fontSize:36}},"🚏"),
-          React.createElement("div",{className:"flex-1"},
-            React.createElement("h3",{style:{fontWeight:700,fontSize:15,color:"#111827"}},result.name),
-            React.createElement("p",{className:"text-muted mt-1"},"PARADA ",result.code),
-            React.createElement("button",{className:"btn btn-r btn-s w-full mt-3",onClick:function(){onNavigateToStop(result.code);}},"VEURE AL MAPA")
-          )
-        )
-      ),
-      !result&&!loading&&!error&&React.createElement("div",{className:"empty-state"},
-        React.createElement("span",null,"🔍"),
-        React.createElement("p",null,"Introdueix el número de parada"),
-        React.createElement("p",{className:"text-muted mt-2"},"Exemples: 108, 2775, 3258")
-      )
-    )
-  );
-}
+        .stop-name {
+            font-size: 3vw;
+            font-weight: 700;
+            color: var(--text-main);
+            line-height: 1;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 50vw;
+        }
 
-// === LinesTab ===
-function LinesTab(props){
-  var isLineFav=props.isLineFav,onToggleLineFav=props.onToggleLineFav,onNavigateToStop=props.onNavigateToStop,preselectedLine=props.preselectedLine,onPreselectedHandled=props.onPreselectedHandled;
-  var _a=useState([]),lines=_a[0],setLines=_a[1];
-  var _b=useState(true),loading=_b[0],setLoading=_b[1];
-  var _c=useState(null),error=_c[0],setError=_c[1];
-  var _d=useState(""),q=_d[0],setQ=_d[1];
-  var _e=useState(null),selected=_e[0],setSelected=_e[1];
-  var _f=useState({anada:null,tornada:null}),dirStops=_f[0],setDirStops=_f[1];
-  var _g=useState(false),loadingStops=_g[0],setLoadingStops=_g[1];
-  var _h=useState(null),stopsError=_h[0],setStopsError=_h[1];
+        /* Search Input Styling */
+        .search-input {
+            background: transparent;
+            border: none;
+            color: var(--text-main);
+            font-size: 2.5vw; /* Slightly smaller to fit */
+            font-weight: 700;
+            width: 100%;
+            outline: none;
+            border-bottom: 2px solid transparent;
+            transition: border-color 0.2s;
+            padding: 0;
+            font-family: 'Inter', sans-serif;
+        }
+        
+        .search-input:focus {
+            border-bottom-color: var(--text-muted);
+        }
+        
+        .search-input::placeholder {
+            color: rgba(255,255,255,0.3);
+        }
 
-  var loadLines=useCallback(async function(){
-    try{setLines(await getTransitLines());setLoading(false);}catch(e){setError("No s'han pogut carregar les línies");setLoading(false);}
-  },[]);
-  useEffect(function(){loadLines();},[loadLines]);
+        /* Search Results Dropdown */
+        .search-results {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            width: 100%;
+            background: var(--bg-header);
+            border: 1px solid #444;
+            border-top: none;
+            border-radius: 0 0 8px 8px;
+            max-height: 40vh;
+            overflow-y: auto;
+            display: none;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+        }
 
-  var handleSelect=useCallback(async function(line){
-    setSelected(line);setLoadingStops(true);setStopsError(null);
-    try{
-      // Try both directions
-      var results={anada:null,tornada:null};
-      try{results.anada=await getLineStops(line.codi_linia,1);}catch(e){}
-      try{results.tornada=await getLineStops(line.codi_linia,2);}catch(e){}
-      if(!results.anada&&!results.tornada) setStopsError("No s'han pogut carregar les parades d'aquesta línia");
-      setDirStops(results);
-    }catch(e){setStopsError("Error carregant parades");}
-    setLoadingStops(false);
-  },[]);
+        .search-item {
+            padding: 1vw 1.5vw;
+            cursor: pointer;
+            border-bottom: 1px solid #333;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
 
-  useEffect(function(){
-    if(preselectedLine&&lines.length){var l=lines.find(function(x){return x.codi_linia===preselectedLine;});if(l)handleSelect(l);if(onPreselectedHandled)onPreselectedHandled();}
-  },[preselectedLine,lines,onPreselectedHandled,handleSelect]);
+        .search-item:hover {
+            background-color: #3a3a3a;
+        }
 
-  var filtered=q.trim()?lines.filter(function(l){return l.codi_linia.toLowerCase().indexOf(q.toLowerCase())>=0||l.nom_linia.toLowerCase().indexOf(q.toLowerCase())>=0;}):lines;
+        .item-name {
+            font-size: 1.2vw;
+            font-weight: 600;
+            color: white;
+        }
 
-  if(loading)return React.createElement("div",{className:"ld"},React.createElement("div",{className:"spin"}),React.createElement("p",null,"CARREGANT LÍNIES..."));
-  if(error)return React.createElement("div",{className:"ld"},React.createElement("p",{style:{color:"#E60000",fontSize:14,fontWeight:600}},error),React.createElement("button",{className:"btn btn-r btn-s",onClick:loadLines},"REINTENTAR"));
+        .item-code {
+            font-size: 1vw;
+            color: var(--text-muted);
+            background: #222;
+            padding: 0.2vw 0.5vw;
+            border-radius: 4px;
+        }
 
-  return React.createElement("div",{style:{height:"100%",display:"flex",flexDirection:"column"}},
-    React.createElement("div",{className:"th"},
-      React.createElement("h2",null,"Línies d'Autobús"),
-      React.createElement("input",{className:"si",value:q,onChange:function(e){setQ(e.target.value);},placeholder:"Filtrar línies (ex: H12, V19, D40...)"})
-    ),
-    React.createElement("div",{className:"overflow-auto flex-1"},
-      !selected
-        ?React.createElement("div",{className:"p-4"},
-            filtered.length===0&&React.createElement("p",{className:"text-c text-muted mt-4"},"No s'han trobat línies"),
-            React.createElement("div",{className:"grid-l"},
-              filtered.map(function(l){return React.createElement("button",{className:"ln-btn",key:l.codi_linia,onClick:function(){handleSelect(l);}},
-                React.createElement("span",{className:"ln-badge"},l.nom_linia||l.codi_linia),
-                isLineFav(l.codi_linia)&&React.createElement("span",{className:"ln-fav"},"♥")
-              );})
-            )
-          )
-        :React.createElement("div",null,
-            React.createElement("div",{className:"line-top"},
-              React.createElement("button",{className:"back-btn",onClick:function(){setSelected(null);setDirStops({anada:null,tornada:null});setStopsError(null);}},"←"),
-              React.createElement("span",{className:"lb"},selected.nom_linia||selected.codi_linia),
-              React.createElement("div",{style:{flex:1}}),
-              React.createElement("button",{onClick:function(){onToggleLineFav({codi_linia:selected.codi_linia,nom_linia:selected.nom_linia});},style:{background:"none",border:"none",fontSize:20,padding:4,cursor:"pointer",fontFamily:"inherit",color:isLineFav(selected.codi_linia)?"var(--r)":"var(--g3)"}},isLineFav(selected.codi_linia)?"♥":"♡")
-            ),
-            loadingStops
-              ?React.createElement("div",{style:{padding:40,textAlign:"center"}},React.createElement("div",{className:"spin",style:{margin:"0 auto"}}))
-              :React.createElement("div",{className:"p-4"},
-                  stopsError&&React.createElement("div",{className:"error-box mb-3"},React.createElement("p",null,stopsError)),
-                  dirStops.anada&&React.createElement(DirectionStops,{direction:"ANADA",data:dirStops.anada,color:"#2563eb",onNavigateToStop:onNavigateToStop}),
-                  dirStops.tornada&&React.createElement(DirectionStops,{direction:"TORNADA",data:dirStops.tornada,color:"#16a34a",onNavigateToStop:onNavigateToStop}),
-                  !dirStops.anada&&!dirStops.tornada&&!stopsError&&React.createElement("p",{className:"text-c text-muted mt-4"},"No s'han trobat parades")
-                )
-          )
-    )
-  );
-}
+        .header-right {
+            text-align: right;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            justify-content: center;
+            gap: 0.5vw;
+        }
+        
+        .op-id {
+            font-size: 1vw;
+            color: var(--text-muted);
+            font-weight: 500;
+            letter-spacing: 0.05em;
+        }
 
-function DirectionStops(props){
-  var direction=props.direction,data=props.data,onNavigateToStop=props.onNavigateToStop;
-  var stops=data.features||[];
-  var last=stops[stops.length-1];
-  var destName=(last&&last.properties&&(last.properties.NOM_DESTI||last.properties.NOM_PARADA))||"Final de línia";
+        .clock {
+            font-size: 2vw;
+            font-weight: 600;
+            color: var(--text-main);
+            display: flex;
+            align-items: center;
+            gap: 0.5vw;
+        }
 
-  return React.createElement("div",{className:"dir-card"},
-    React.createElement("div",{className:"dir-h "+(direction==="ANADA"?"anada":"tornada")},
-      React.createElement("h4",null,direction),
-      React.createElement("div",{className:"dir-to"},"→ ",destName),
-      React.createElement("div",{className:"dir-n"},stops.length," parades")
-    ),
-    React.createElement("div",{className:"dir-list"},
-      stops.map(function(f,i){return React.createElement("button",{className:"dir-item",key:i,onClick:function(){onNavigateToStop(f.properties.CODI_PARADA||"");}},
-        React.createElement("span",{className:"dir-idx"},i+1),
-        React.createElement("span",{className:"dir-name"},f.properties.NOM_PARADA||""),
-        React.createElement("span",{className:"dir-code"},f.properties.CODI_PARADA||""),
-        React.createElement("span",{style:{color:"var(--g3)",fontSize:12}},"→")
-      );})
-    )
-  );
-}
+        /* BUS LIST SECTION */
+        .bus-list {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background-color: var(--bg-row);
+            overflow: hidden; /* Hide extra rows if any */
+        }
 
-// === FavoritesTab ===
-function FavoritesTab(props){
-  var favStops=props.favStops,favLines=props.favLines,onRemoveStop=props.onRemoveStop,onRemoveLine=props.onRemoveLine,onNavigateToStop=props.onNavigateToStop,onSelectLine=props.onSelectLine;
-  var empty=!favStops.length&&!favLines.length;
-  return React.createElement("div",{style:{height:"100%",display:"flex",flexDirection:"column"}},
-    React.createElement("div",{className:"th"},
-      React.createElement("h2",null,"Preferits ♥"),
-      React.createElement("p",{className:"text-muted",style:{color:"rgba(255,255,255,.7)"}},(favStops.length+favLines.length)," elements guardats")
-    ),
-    React.createElement("div",{className:"overflow-auto flex-1 p-4"},
-      empty&&React.createElement("div",{className:"empty-state"},
-        React.createElement("span",null,"⭐"),
-        React.createElement("p",null,"No tens preferits"),
-        React.createElement("p",{className:"text-muted mt-2"},"Afegeix parades des de CERCA o línies des de LÍNIES")
-      ),
-      favStops.length>0&&React.createElement("div",{className:"fv-section"},
-        React.createElement("h3",{className:"fv-title"},"PARADES (",favStops.length,")"),
-        favStops.map(function(s){return React.createElement("div",{className:"fv-item",key:s.codi_parada},
-          React.createElement("span",{className:"fv-icon"},"🚏"),
-          React.createElement("div",{className:"fv-info"},
-            React.createElement("div",{className:"fv-name"},s.nom_parada),
-            React.createElement("div",{className:"fv-sub"},"PARADA ",s.codi_parada)
-          ),
-          React.createElement("button",{className:"btn btn-r btn-xs",onClick:function(){onNavigateToStop(s.codi_parada);}},"MAPA"),
-          React.createElement("button",{className:"fv-del",onClick:function(){onRemoveStop(s.codi_parada);}},"✕")
-        );})
-      ),
-      favLines.length>0&&React.createElement("div",{className:"fv-section"},
-        React.createElement("h3",{className:"fv-title"},"LÍNIES (",favLines.length,")"),
-        favLines.map(function(l){return React.createElement("div",{className:"fv-item",key:l.codi_linia},
-          React.createElement("span",{className:"lb"},l.nom_linia),
-          React.createElement("div",{className:"fv-info"},
-            React.createElement("div",{className:"fv-name"},"Línia ",l.codi_linia),
-            React.createElement("div",{className:"fv-sub"},l.nom_linia!==l.codi_linia?l.nom_linia:"")
-          ),
-          React.createElement("button",{className:"btn btn-r btn-xs",onClick:function(){onSelectLine(l.codi_linia);}},"INFO"),
-          React.createElement("button",{className:"fv-del",onClick:function(){onRemoveLine(l.codi_linia);}},"✕")
-        );})
-      )
-    )
-  );
-}
+        .bus-row {
+            height: 20%; /* Adattato per riempire lo spazio esattamente con 5 righe */
+            display: flex;
+            align-items: center;
+            padding: 0 2.5vw;
+            border-bottom: 1px solid var(--divider);
+            animation: fadeIn 0.5s ease-out;
+            position: relative;
+        }
+        
+        .bus-row::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 15%;
+            bottom: 15%;
+            width: 0.4vw;
+            background-color: #444;
+            border-radius: 0 4px 4px 0;
+        }
 
-// === RouteTab ===
-function RouteTab(){
-  var _a=useState(""),from=_a[0],setFrom=_a[1];
-  var _b=useState(""),to=_b[0],setTo=_b[1];
-  var _c=useState(false),loading=_c[0],setLoading=_c[1];
-  var _d=useState(null),error=_d[0],setError=_d[1];
-  var _e=useState([]),itin=_e[0],setItin=_e[1];
-  var _f=useState(null),exp=_f[0],setExp=_f[1];
+        .route-col {
+            width: 15%;
+            display: flex;
+            align-items: center;
+        }
 
-  var useGPS=async function(setter){
-    if(!navigator.geolocation){setError("Geolocalització no disponible");return;}
-    try{
-      var pos=await new Promise(function(res,rej){navigator.geolocation.getCurrentPosition(res,rej,{timeout:10000});});
-      setter(pos.coords.latitude+","+pos.coords.longitude);
-    }catch(e){setError("No s'ha pogut obtenir la ubicació");}
-  };
+        .route-badge {
+            padding: 0.3vw 0.8vw; /* Adjusted for 16:9 */
+            min-width: 4vw;
+            text-align: center;
+            border-radius: 6px;
+            font-size: 1.8vw; /* Adjusted */
+            font-weight: 700;
+            color: white;
+            background-color: var(--color-std); 
+            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+        }
 
-  var search=async function(){
-    var f=from.trim()||"41.3874,2.1686";
-    var t=to.trim();
-    if(!t){setError("Introdueix una destinació");return;}
-    setLoading(true);setError(null);setItin([]);setExp(null);
-    try{
-      var fp=f.split(",").map(Number),tp=t.split(",").map(Number);
-      if(isNaN(fp[0])||isNaN(fp[1])||isNaN(tp[0])||isNaN(tp[1])){setError("Format incorrecte. Usa 'lat,lon'");setLoading(false);return;}
-      var data=await getItineraries(fp[0],fp[1],tp[0],tp[1]);
-      setItin((data&&data.plan&&data.plan.itineraries)||[]);
-    }catch(e){setError("No s'ha pogut calcular la ruta");}
-    setLoading(false);
-  };
+        .type-H .route-badge { background-color: var(--color-H); }
+        .type-V .route-badge { background-color: var(--color-V); }
+        .type-D .route-badge { background-color: var(--color-D); }
+        .type-N .route-badge { background-color: var(--color-N); color: black; }
 
-  var fmtDur=function(s){var m=Math.round(s/60);return m>=60?Math.floor(m/60)+"h "+m%60+"min":m+" min";};
-  var fmtDist=function(m){return m>=1000?(m/1000).toFixed(1)+" km":Math.round(m)+" m";};
+        .dest-col {
+            width: 65%;
+            padding-left: 1vw;
+            font-size: 2vw; /* Adjusted */
+            font-weight: 600;
+            color: white;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
 
-  return React.createElement("div",{style:{height:"100%",display:"flex",flexDirection:"column"}},
-    React.createElement("div",{className:"th"},
-      React.createElement("h2",null,"Planificar Ruta"),
-      React.createElement("div",null,
-        React.createElement("div",{className:"route-inp"},
-          React.createElement("span",{className:"pf"},"🟢"),
-          React.createElement("input",{className:"si",value:from,onChange:function(e){setFrom(e.target.value);},placeholder:"Origen: lat,lon"}),
-          React.createElement("button",{className:"gps-btn",onClick:function(){useGPS(setFrom);}},"GPS")
-        ),
-        React.createElement("div",{className:"route-inp"},
-          React.createElement("span",{className:"pf"},"🔴"),
-          React.createElement("input",{className:"si",value:to,onChange:function(e){setTo(e.target.value);},placeholder:"Destí: lat,lon"})
-        ),
-        React.createElement("div",{className:"flx-g2 mt-2"},
-          React.createElement("button",{className:"btn btn-w btn-s",onClick:search,disabled:loading||!to.trim(),style:{flex:1}},loading?"CALCULANT...":"CALCULAR RUTA")
-        )
-      ),
-      React.createElement("p",{className:"route-hint"},"Format: latitud,longitud (ex: 41.3874,2.1686)")
-    ),
-    React.createElement("div",{className:"overflow-auto flex-1 p-4"},
-      loading&&React.createElement("div",{className:"ld"},React.createElement("div",{className:"spin"})),
-      error&&React.createElement("div",{className:"error-box"},React.createElement("p",null,error)),
-      !loading&&!error&&itin.length===0&&!to.trim()&&React.createElement("div",{className:"empty-state"},
-        React.createElement("span",null,"🗺️"),
-        React.createElement("p",null,"Planifica la teva ruta amb transport públic"),
-        React.createElement("p",{className:"text-muted mt-2"},"Exemple: 41.3874,2.1686 → 41.4036,2.1744"),
-        React.createElement("p",{className:"text-muted"},"(Pl. Catalunya → Sagrada Família)")
-      ),
-      !loading&&!error&&itin.length===0&&to.trim()&&React.createElement("p",{className:"text-c text-muted mt-4"},"No s'han trobat rutes"),
-      itin.length>0&&React.createElement("div",null,
-        React.createElement("p",{className:"text-muted mb-3"},itin.length," RUTES TROBADES"),
-        itin.slice(0,5).map(function(it,i){return React.createElement("div",{className:"iti-card",key:i},
-          React.createElement("button",{className:"iti-top",onClick:function(){setExp(exp===i?null:i);}},
-            React.createElement("div",{className:"iti-info"},
-              React.createElement("div",null,
-                React.createElement("span",{className:"iti-label"},"OPCIÓ ",i+1),
-                React.createElement("span",{className:"iti-dur"},fmtDur(it.duration))
-              ),
-              React.createElement("div",{className:"iti-modes"},
-                it.legs.slice(0,4).map(function(l,j){return React.createElement("span",{key:j},l.mode==="WALK"?"🚶":l.mode==="BUS"?"🚌":l.mode==="SUBWAY"?"🚇":"🚊");})
-              )
-            ),
-            React.createElement("span",{className:"iti-arrow"+(exp===i?" open":"")},"›")
-          ),
-          exp===i&&React.createElement("div",{className:"iti-detail"},
-            it.legs.map(function(leg,j){return React.createElement("div",{className:"leg",key:j},
-              React.createElement("div",{className:"leg-icon"},
-                leg.mode==="WALK"?"🚶":leg.mode==="BUS"?"🚌":leg.mode==="SUBWAY"?"🚇":"🚊",
-                j<it.legs.length-1&&React.createElement("div",{className:"leg-line"})
-              ),
-              React.createElement("div",{className:"leg-info"},
-                React.createElement("div",null,
-                  React.createElement("span",{className:"leg-mode"},leg.mode==="WALK"?"A PEU":leg.mode==="BUS"?"AUTOBÚS":leg.mode==="SUBWAY"?"METRO":leg.mode),
-                  leg.routeShortName&&React.createElement("span",{className:"leg-ln"},leg.routeShortName),
-                  leg.headsign&&React.createElement("span",{className:"leg-hs"},"→ ",leg.headsign)
-                ),
-                React.createElement("div",{className:"leg-times"},
-                  React.createElement("span",null,Math.round((leg.duration||0)/60)," min"),
-                  leg.distance>0&&React.createElement("span",null,fmtDist(leg.distance))
-                ),
-                React.createElement("div",{className:"leg-route"},(leg.from&&leg.from.name||"Inici")," → ",(leg.to&&leg.to.name||"Fi"))
-              )
-            );})
-          )
-        );})
-      )
-    )
-  );
-}
+        .time-col {
+            width: 20%;
+            text-align: right;
+            display: flex;
+            align-items: baseline;
+            justify-content: flex-end;
+            gap: 0.5vw;
+        }
 
-// === App ===
-function App(){
-  var _a=useState("map"),tab=_a[0],setTab=_a[1];
-  var _b=useState(null),highlight=_b[0],setHighlight=_b[1];
-  var _c=useState(null),preLine=_c[0],setPreLine=_c[1];
-  var fav=useFavorites();
+        .arrival-time {
+            font-size: 2.2vw; /* Adjusted */
+            font-weight: 700;
+            color: white;
+            line-height: 1;
+        }
 
-  var navToStop=useCallback(function(c){setHighlight(c);setTab("map");},[]);
-  var selLine=useCallback(function(c){setPreLine(c);setTab("lines");},[]);
+        .arrival-unit {
+            font-size: 1vw;
+            font-weight: 500;
+            color: var(--text-muted);
+        }
+        
+        .imminent-text {
+            color: #4cd137;
+        }
 
-  var tabs=[
-    {id:"map",label:"MAPA",icon:"📍"},
-    {id:"search",label:"CERCA",icon:"🔍"},
-    {id:"lines",label:"LÍNIES",icon:"🚌"},
-    {id:"favorites",label:"PREFERITS",icon:"⭐"},
-    {id:"route",label:"RUTA",icon:"🗺️"},
-  ];
+        /* FOOTER */
+        .footer-alert {
+            height: 10%; /* Adjusted for 16:9 */
+            background-color: #c0392b;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 2.5vw;
+            color: white;
+            font-weight: 600;
+            font-size: 1.2vw;
+        }
+        
+        .footer-left {
+            display: flex;
+            align-items: center;
+            width: 70%;
+        }
+        
+        .footer-badge {
+            background: rgba(0,0,0,0.3);
+            padding: 0.2vw 0.8vw;
+            border-radius: 4px;
+            margin-right: 1.5vw;
+            font-weight: 700;
+        }
 
-  var handleToggleFav=useCallback(function(s){
-    if(fav.isStopFav(s.codi_parada))fav.removeStop(s.codi_parada);else fav.addStop(s);
-  },[fav]);
+        /* Search Footer Styling */
+        .footer-right {
+            position: relative;
+            display: flex;
+            align-items: center;
+            background: rgba(0,0,0,0.2);
+            padding: 0.5vw 1vw;
+            border-radius: 6px;
+            width: 25vw;
+            gap: 0.5vw;
+            transition: background 0.2s;
+        }
+        
+        .footer-right:focus-within {
+            background: rgba(0,0,0,0.4);
+        }
 
-  var handleToggleLineFav=useCallback(function(l){
-    if(fav.isLineFav(l.codi_linia))fav.removeLine(l.codi_linia);else fav.addLine(l);
-  },[fav]);
+        .search-input-footer {
+            background: transparent;
+            border: none;
+            color: white;
+            font-size: 1vw;
+            font-weight: 500;
+            width: 100%;
+            outline: none;
+            font-family: 'Inter', sans-serif;
+        }
 
-  return React.createElement("div",{className:"app"},
-    React.createElement("div",{className:"main"},
-      // Map
-      React.createElement("div",{className:"tab-panel"+(tab!=="map"?" tab-hidden":""),key:"map"},
-        React.createElement(MapTab,{highlightStopCode:highlight,onHighlightHandled:function(){setHighlight(null);},isFav:fav.isStopFav,onToggleFav:handleToggleFav})
-      ),
-      // Search
-      tab==="search"&&React.createElement("div",{className:"tab-panel",key:"search"},
-        React.createElement(SearchTab,{onNavigateToStop:navToStop})
-      ),
-      // Lines
-      tab==="lines"&&React.createElement("div",{className:"tab-panel",key:"lines"},
-        React.createElement(LinesTab,{isLineFav:fav.isLineFav,onToggleLineFav:handleToggleLineFav,onNavigateToStop:navToStop,preselectedLine:preLine,onPreselectedHandled:function(){setPreLine(null);}})
-      ),
-      // Favorites
-      tab==="favorites"&&React.createElement("div",{className:"tab-panel",key:"fav"},
-        React.createElement(FavoritesTab,{favStops:fav.stops,favLines:fav.lines,onRemoveStop:fav.removeStop,onRemoveLine:fav.removeLine,onNavigateToStop:navToStop,onSelectLine:selLine})
-      ),
-      // Route
-      tab==="route"&&React.createElement("div",{className:"tab-panel",key:"route"},
-        React.createElement(RouteTab,null)
-      )
-    ),
-    React.createElement("nav",{className:"nav"},
-      tabs.map(function(t){
-        var active=tab===t.id;
-        return React.createElement("button",{className:"nb"+(active?" ac":""),key:t.id,onClick:function(){setTab(t.id);}},
-          React.createElement("i",null,t.icon),
-          React.createElement("span",null,t.label),
-          active&&React.createElement("div",{className:"nb-bar"})
-        );
-      })
-    )
-  );
-}
+        .search-input-footer::placeholder {
+            color: rgba(255,255,255,0.6);
+        }
 
-ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(App));
-</script>
+        /* Search Results Dropdown (Opening Upwards) */
+        .search-results-footer {
+            position: absolute;
+            bottom: calc(100% + 0.5vw); /* Apre verso l'alto */
+            right: 0;
+            width: 100%;
+            background: var(--bg-header);
+            border: 1px solid #444;
+            border-bottom: none;
+            border-radius: 8px 8px 0 0;
+            max-height: 40vh;
+            overflow-y: auto;
+            display: none;
+            box-shadow: 0 -10px 30px rgba(0,0,0,0.8);
+            z-index: 100;
+        }
+
+        .search-item {
+            padding: 1vw 1.5vw;
+            cursor: pointer;
+            border-top: 1px solid #333;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .search-item:first-child { border-top: none; }
+
+        .search-item:hover {
+            background-color: #3a3a3a;
+        }
+
+        .item-name {
+            font-size: 1vw;
+            font-weight: 600;
+            color: white;
+        }
+
+        .item-code {
+            font-size: 0.9vw;
+            color: var(--text-muted);
+            background: #222;
+            padding: 0.2vw 0.5vw;
+            border-radius: 4px;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        /* Scrollbar for dropdown */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #111; }
+        ::-webkit-scrollbar-thumb { background: #444; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #555; }
+
+    </style>
+</head>
+<body>
+
+    <div class="display-container">
+        
+        <!-- Header -->
+        <div class="header">
+            <div class="header-left">
+                <div class="stop-label">
+                    <i data-lucide="bus" size="18"></i> 
+                    FERMATA <span id="stopCodeDisplay">108</span>
+                </div>
+                <!-- Dynamic Stop Name -->
+                <div class="stop-name" id="stopName">Balmes - Gran Via</div>
+            </div>
+            
+            <div class="header-right">
+                <div class="op-id">OP ID #<span id="opId">85700</span></div>
+                <div class="clock">
+                    <i data-lucide="clock" size="24" class="text-gray-400"></i>
+                    <span id="clock">08:20 PM</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content: Bus List -->
+        <div class="bus-list" id="busList">
+            <div class="flex items-center justify-center h-full text-2xl text-gray-500">Loading...</div>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer-alert">
+            <div class="footer-left">
+                <div class="footer-badge">INFO</div>
+                <span id="statusMessage" class="whitespace-nowrap overflow-hidden text-ellipsis">Service operating normally across all lines.</span>
+            </div>
+            
+            <!-- Dynamic Search Moved Here -->
+            <div class="footer-right">
+                <i data-lucide="search" size="16" class="opacity-60"></i>
+                <input type="text" id="searchInput" class="search-input-footer" placeholder="Cerca fermata (nome o codice)..." autocomplete="off">
+                
+                <!-- Dropdown Results -->
+                <div id="searchResults" class="search-results-footer">
+                    <!-- Injected by JS -->
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // NEW CONFIG
+        const APP_ID = "a5d88368";
+        const APP_KEY = "4a578607c30c461a8fd7729700711337";
+        let currentStopCode = "108"; 
+        let currentStopName = "Balmes - Gran Via";
+        
+        const MAX_ROWS = 5; // Impostato a massimo 5 righe
+
+        // DOM
+        const busListEl = document.getElementById('busList');
+        const clockEl = document.getElementById('clock');
+        const searchInput = document.getElementById('searchInput');
+        const searchResults = document.getElementById('searchResults');
+        const stopCodeDisplay = document.getElementById('stopCodeDisplay');
+        const stopNameEl = document.getElementById('stopName');
+        const statusMessageEl = document.getElementById('statusMessage');
+
+        // CLOCK
+        function updateTime() {
+            const now = new Date();
+            clockEl.textContent = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+        }
+        setInterval(updateTime, 1000);
+        updateTime();
+        
+        lucide.createIcons();
+
+        // ---- 1. BUS DATA LOGIC ----
+
+        async function fetchBusData() {
+            const url = `https://api.tmb.cat/v1/ibus/stops/${currentStopCode}?app_id=${APP_ID}&app_key=${APP_KEY}`;
+            
+            try {
+                const response = await fetch(url);
+                if (!response.ok) throw new Error('API Error');
+                const data = await response.json();
+                
+                stopCodeDisplay.textContent = currentStopCode;
+                stopNameEl.textContent = currentStopName;
+
+                if (data.data && data.data.ibus && data.data.ibus.length > 0) {
+                    renderBuses(data.data.ibus);
+                    statusMessageEl.textContent = "TMB Service Active • Updated just now";
+                } else {
+                    renderEmpty("No buses scheduled for the next hour.");
+                    statusMessageEl.textContent = "Service operating normally.";
+                }
+
+            } catch (error) {
+                console.warn("API Fail -> Demo Data");
+                loadDemoData();
+                statusMessageEl.textContent = "Offline Mode • Displaying Demo Schedule";
+            }
+        }
+
+        function renderBuses(buses) {
+            busListEl.innerHTML = '';
+            
+            buses.sort((a, b) => a['t-in-min'] - b['t-in-min']);
+
+            const topBuses = buses.slice(0, MAX_ROWS);
+
+            topBuses.forEach((bus) => {
+                const line = bus.line;
+                const dest = bus['text-ca'];
+                const min = bus['t-in-min'];
+
+                let typeClass = 'type-std';
+                if (line.startsWith('H')) typeClass = 'type-H';
+                if (line.startsWith('V')) typeClass = 'type-V';
+                if (line.startsWith('D')) typeClass = 'type-D';
+                if (line.startsWith('N')) typeClass = 'type-N';
+
+                const row = document.createElement('div');
+                row.className = `bus-row ${typeClass}`;
+                
+                let timeHtml = '';
+                if (min === 0) {
+                    timeHtml = `<span class="arrival-time imminent-text">NOW</span>`;
+                } else {
+                    timeHtml = `<span class="arrival-time">${min}</span> <span class="arrival-unit">min</span>`;
+                }
+
+                row.innerHTML = `
+                    <div class="route-col">
+                        <div class="route-badge">${line}</div>
+                    </div>
+                    <div class="dest-col">
+                        ${dest}
+                    </div>
+                    <div class="time-col">
+                        ${timeHtml}
+                    </div>
+                `;
+
+                busListEl.appendChild(row);
+            });
+            
+            // Le righe vuote riempitive sono state rimosse come richiesto
+        }
+
+        function renderEmpty(msg) {
+             busListEl.innerHTML = `
+                <div class="flex flex-col items-center justify-center h-full text-gray-500">
+                    <i data-lucide="info" size="48" class="mb-4 opacity-50"></i>
+                    <span class="text-2xl">${msg}</span>
+                </div>
+             `;
+             lucide.createIcons();
+        }
+
+        function loadDemoData() {
+            const data = [
+                { line: "V15", "text-ca": "Vall d'Hebron", "t-in-min": 2 },
+                { line: "67", "text-ca": "Cornellà", "t-in-min": 8 },
+                { line: "7", "text-ca": "Fòrum", "t-in-min": 14 },
+                { line: "H12", "text-ca": "Besòs/Verneda", "t-in-min": 19 },
+                { line: "D50", "text-ca": "Paral·lel", "t-in-min": 25 }
+            ];
+            stopCodeDisplay.textContent = currentStopCode;
+            stopNameEl.textContent = currentStopName;
+            renderBuses(data);
+        }
+
+        // ---- 2. SEARCH LOGIC ----
+        
+        let searchTimeout;
+
+        searchInput.addEventListener('input', (e) => {
+            const query = e.target.value.trim();
+            clearTimeout(searchTimeout);
+            
+            if (query.length < 2) {
+                searchResults.style.display = 'none';
+                return;
+            }
+
+            // Debounce API calls
+            searchTimeout = setTimeout(() => {
+                performSearch(query);
+            }, 500);
+        });
+
+        // Hide dropdown when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!searchInput.contains(e.target) && !searchResults.contains(e.target)) {
+                searchResults.style.display = 'none';
+            }
+        });
+        
+        // Show dropdown again if input is clicked and has value
+        searchInput.addEventListener('focus', () => {
+            if (searchResults.children.length > 0) {
+                searchResults.style.display = 'block';
+            }
+        });
+
+        async function performSearch(query) {
+            // Search TMB Transit API for stops
+            // The API allows filtering by name or code. We use a general text search if possible, 
+            // or fetch a list and filter locally if the API doesn't support fuzzy search directly.
+            
+            // Note: TMB API v1 transit/parades doesn't have a direct "q=" text search.
+            // We will filter by "codi_parada" if it's a number, or we will have to simulate it
+            // if it's text (as fetching all 3000 stops on every keystroke is heavy).
+            // For this implementation, we will use a hybrid approach.
+            
+            const isNumber = !isNaN(query);
+            let url = '';
+            
+            if (isNumber) {
+                // Direct lookup by ID
+                url = `https://api.tmb.cat/v1/transit/parades?app_id=${APP_ID}&app_key=${APP_KEY}&filter=codi_parada=${query}`;
+            } else {
+                // To search by name via TMB API, we typically need to fetch all or use a specific filter.
+                // We'll use a filter that looks for the string in the name (nom_parada)
+                // Note: TMB API syntax for 'like' operations can be tricky. 
+                // We'll fetch a batch and filter locally for demonstration if the API fails the complex query.
+                url = `https://api.tmb.cat/v1/transit/parades?app_id=${APP_ID}&app_key=${APP_KEY}`; 
+            }
+
+            try {
+                // Show loading state
+                searchResults.innerHTML = '<div class="p-4 text-gray-400">Searching...</div>';
+                searchResults.style.display = 'block';
+
+                const res = await fetch(url);
+                if (!res.ok) throw new Error("Search API failed");
+                const data = await res.json();
+                
+                let features = data.features || [];
+                
+                // If it was a text search, do local filtering on the fetched batch
+                if (!isNumber && query.length >= 3) {
+                     const qLower = query.toLowerCase();
+                     features = features.filter(f => 
+                         f.properties.nom_parada.toLowerCase().includes(qLower) || 
+                         f.properties.codi_parada.toString().includes(qLower)
+                     );
+                     // Limit results
+                     features = features.slice(0, 15);
+                }
+
+                renderSearchResults(features, query);
+
+            } catch (err) {
+                console.error("Search error:", err);
+                // Fallback to fake data for demonstration if API fails
+                renderFakeSearchResults(query);
+            }
+        }
+
+        function renderSearchResults(features, originalQuery) {
+            searchResults.innerHTML = '';
+            
+            if (features.length === 0) {
+                searchResults.innerHTML = '<div class="p-4 text-gray-400">No stops found</div>';
+                return;
+            }
+
+            features.forEach(f => {
+                const name = f.properties.nom_parada;
+                const code = f.properties.codi_parada;
+                
+                const div = document.createElement('div');
+                div.className = 'search-item';
+                div.innerHTML = `
+                    <span class="item-name">${name}</span>
+                    <span class="item-code">#${code}</span>
+                `;
+                
+                div.addEventListener('click', () => {
+                    selectStop(code, name);
+                });
+                
+                searchResults.appendChild(div);
+            });
+            
+            searchResults.style.display = 'block';
+        }
+        
+        function renderFakeSearchResults(query) {
+             searchResults.innerHTML = '';
+             const fakeData = [
+                 { name: "Plaça Catalunya", code: "254" },
+                 { name: "Balmes - Gran Via", code: "108" },
+                 { name: "Paral·lel", code: "302" },
+                 { name: "Sants Estació", code: "115" },
+                 { name: "Sagrada Família", code: "405" }
+             ].filter(item => item.name.toLowerCase().includes(query.toLowerCase()) || item.code.includes(query));
+             
+             if(fakeData.length === 0) {
+                  searchResults.innerHTML = '<div class="p-4 text-gray-400">No demo stops found</div>';
+                  return;
+             }
+             
+             fakeData.forEach(item => {
+                 const div = document.createElement('div');
+                 div.className = 'search-item';
+                 div.innerHTML = `
+                    <span class="item-name">${item.name}</span>
+                    <span class="item-code">#${item.code}</span>
+                `;
+                div.addEventListener('click', () => {
+                    selectStop(item.code, item.name);
+                });
+                searchResults.appendChild(div);
+             });
+        }
+
+        function selectStop(code, name) {
+            currentStopCode = code;
+            currentStopName = name;
+            searchInput.value = ''; // Svuota la barra dopo la selezione
+            searchResults.style.display = 'none';
+            searchInput.blur(); // Remove focus
+            
+            // Show loading immediately
+            busListEl.innerHTML = `<div class="flex items-center justify-center h-full text-2xl text-gray-500">Loading schedule for ${code}...</div>`;
+            
+            fetchBusData();
+        }
+
+        // Init
+        fetchBusData();
+        setInterval(fetchBusData, 15000); // Aggiornamento ogni 15 secondi
+
+    </script>
 </body>
 </html>

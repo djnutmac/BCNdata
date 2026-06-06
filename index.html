@@ -3,337 +3,348 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Roma Live Bus Tracker</title>
+    <title>Smart City Dashboard - Barcellona</title>
     
-    <!-- Tailwind CSS per la UI -->
+    <!-- Tailwind CSS per il design -->
     <script src="https://cdn.tailwindcss.com"></script>
     
     <!-- Leaflet CSS & JS per la mappa -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     
-    <!-- Protobuf.js per decodificare il feed binario -->
-    <script src="https://cdn.jsdelivr.net/npm/protobufjs@7.2.5/dist/protobuf.min.js"></script>
+    <!-- Chart.js per i grafici -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
 
     <style>
-        /* Assicura che la mappa occupi tutto lo spazio rimanente */
-        #map { height: calc(100vh - 4rem); }
+        body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; }
+        #map { z-index: 1; }
         
-        /* Stile personalizzato per i marker dei bus */
-        .bus-marker {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background-color: transparent;
-            border: none;
-            transition: transform 0.5s ease-out; /* Animazione fluida per rotazione e spostamento */
+        /* Animazione per i sensori critici sulla mappa */
+        .pulse-red {
+            box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
+            animation: pulse-red-anim 2s infinite;
         }
-
-        .bus-icon-container {
-            position: relative;
-            width: 32px;
-            height: 32px;
-            background: #E63946; /* Rosso ATAC */
-            border-radius: 50%;
-            border: 2px solid white;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .bus-label {
-            position: absolute;
-            top: -20px;
-            background: white;
-            color: black;
-            padding: 2px 6px;
-            border-radius: 4px;
-            font-weight: bold;
-            font-size: 10px;
-            box-shadow: 0 1px 2px rgba(0,0,0,0.2);
-            white-space: nowrap;
-        }
-
-        /* Freccia di direzione all'interno del marker */
-        .direction-arrow {
-            width: 0;
-            height: 0;
-            border-left: 6px solid transparent;
-            border-right: 6px solid transparent;
-            border-bottom: 12px solid white;
-            position: absolute;
-            /* La freccia di base punta verso l'alto (Nord, 0 gradi) */
-        }
-        
-        /* Modale di caricamento/errore */
-        #status-overlay {
-            transition: opacity 0.3s;
+        @keyframes pulse-red-anim {
+            0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+            70% { box-shadow: 0 0 0 15px rgba(239, 68, 68, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
         }
     </style>
 </head>
-<body class="bg-gray-100 overflow-hidden">
+<body class="flex flex-col h-screen overflow-hidden text-gray-800">
 
-    <!-- Header e Controlli -->
-    <header class="h-16 bg-white shadow-md flex items-center justify-between px-4 sm:px-6 relative z-50">
-        <div class="flex items-center gap-2">
-            <svg class="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
-            </svg>
-            <h1 class="text-xl font-bold text-gray-800 hidden sm:block">Roma Bus Live</h1>
+    <!-- Header / Navbar -->
+    <header class="bg-indigo-900 text-white p-4 shadow-md flex justify-between items-center z-10 shrink-0">
+        <div class="flex items-center gap-3">
+            <i data-lucide="activity" class="text-indigo-400"></i>
+            <h1 class="text-xl font-bold">Barcelona Smart City <span class="text-sm font-normal text-indigo-300 ml-2">Open Data BCN</span></h1>
         </div>
-        
-        <div class="flex items-center gap-4">
-            <div class="relative">
-                <input type="text" id="route-filter" placeholder="Filtra linea (es. H, 8, 23)" 
-                       class="w-full sm:w-64 pl-4 pr-10 py-2 rounded-full border border-gray-300 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent">
-                <button id="clear-filter" class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 hidden">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-                </button>
-            </div>
-            
-            <div id="update-indicator" class="flex items-center gap-2 text-sm text-gray-500">
-                <span class="relative flex h-3 w-3">
-                  <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                  <span class="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
-                </span>
-                <span id="last-update-text" class="hidden sm:inline">In attesa...</span>
-            </div>
+        <div class="text-sm bg-indigo-800 px-3 py-1 rounded-full border border-indigo-700 flex items-center gap-2">
+            <div class="w-2 h-2 rounded-full bg-green-400 animate-pulse"></div>
+            Sistema Attivo
         </div>
     </header>
 
-    <!-- Contenitore Mappa -->
-    <div id="map" class="w-full relative z-0"></div>
-
-    <!-- Status Overlay (Caricamento/Errori) -->
-    <div id="status-overlay" class="fixed inset-0 z-50 flex items-center justify-center bg-white/80 backdrop-blur-sm">
-        <div class="bg-white p-6 rounded-lg shadow-xl text-center max-w-sm border border-gray-100">
-            <div id="loading-spinner" class="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600 mx-auto mb-4"></div>
-            <h2 id="status-title" class="text-lg font-bold text-gray-800 mb-2">Inizializzazione...</h2>
-            <p id="status-message" class="text-gray-600 text-sm">Caricamento dello schema GTFS-RT e connessione ai server ATAC.</p>
+    <!-- Alert Panel (Semaforo) -->
+    <div class="bg-white border-b shadow-sm p-4 grid grid-cols-3 gap-4 shrink-0 z-10">
+        <div class="flex items-center justify-between p-3 bg-red-50 rounded-lg border border-red-100">
+            <div class="flex items-center gap-3">
+                <div class="text-2xl">🔴</div>
+                <div>
+                    <div class="text-sm text-gray-500 font-medium">Allarmi Critici</div>
+                    <div class="text-xl font-bold text-red-700" id="count-critical">0</div>
+                </div>
+            </div>
+            <i data-lucide="alert-triangle" class="text-red-300 w-8 h-8"></i>
+        </div>
+        <div class="flex items-center justify-between p-3 bg-yellow-50 rounded-lg border border-yellow-100">
+            <div class="flex items-center gap-3">
+                <div class="text-2xl">🟡</div>
+                <div>
+                    <div class="text-sm text-gray-500 font-medium">Attenzione</div>
+                    <div class="text-xl font-bold text-yellow-700" id="count-warning">0</div>
+                </div>
+            </div>
+            <i data-lucide="alert-circle" class="text-yellow-300 w-8 h-8"></i>
+        </div>
+        <div class="flex items-center justify-between p-3 bg-green-50 rounded-lg border border-green-100">
+            <div class="flex items-center gap-3">
+                <div class="text-2xl">🟢</div>
+                <div>
+                    <div class="text-sm text-gray-500 font-medium">Sensori Normali</div>
+                    <div class="text-xl font-bold text-green-700" id="count-normal">0</div>
+                </div>
+            </div>
+            <i data-lucide="check-circle" class="text-green-300 w-8 h-8"></i>
         </div>
     </div>
 
+    <!-- Main Content -->
+    <main class="flex-1 flex flex-col md:flex-row overflow-hidden relative">
+        
+        <!-- Left: Map -->
+        <div id="map" class="flex-1 h-1/2 md:h-full relative"></div>
+
+        <!-- Right: Sidebar (Details & Charts) -->
+        <div class="w-full md:w-[400px] lg:w-[450px] bg-white border-l shadow-2xl flex flex-col h-1/2 md:h-full z-10">
+            
+            <!-- Chart Section -->
+            <div class="p-5 border-b bg-gray-50 shrink-0">
+                <h2 class="text-lg font-semibold mb-1" id="chart-title">Seleziona un sensore</h2>
+                <p class="text-sm text-gray-500 mb-4" id="chart-subtitle">Clicca sulla mappa per vedere i dati storici</p>
+                <div class="h-48 w-full">
+                    <canvas id="sensorChart"></canvas>
+                </div>
+            </div>
+
+            <!-- List Section -->
+            <div class="p-4 flex-1 overflow-y-auto">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="font-semibold text-gray-700">Elenco Sensori</h3>
+                    <div class="flex gap-2 text-sm">
+                        <button onclick="filterSensors('all')" class="hover:text-indigo-600 font-medium text-indigo-600">Tutti</button>
+                        <button onclick="filterSensors('traffic')" class="hover:text-gray-900 text-gray-400">Traffico</button>
+                        <button onclick="filterSensors('air')" class="hover:text-gray-900 text-gray-400">Aria</button>
+                    </div>
+                </div>
+                <div id="sensor-list" class="space-y-3">
+                    <!-- I sensori verranno iniettati qui da JS -->
+                </div>
+            </div>
+        </div>
+    </main>
+
     <script>
-        // --- CONFIGURAZIONE ---
-        // Quando avrai creato il tuo Cloudflare Worker, sostituisci questo URL.
-        // Esempio: const PROXY_URL = "https://atac-proxy.tuonome.workers.dev";
-        const FEED_URL = "https://romamobilita.it/sites/default/files/rome_rtgtfs_vehicle_positions_feed.pb";
-        const PROXY_URL = "https://fancy-wood-815c.djnutmac.workers.dev";
-        
-        // URL ufficiale dello schema GTFS-Realtime tramite CDN (jsDelivr) per evitare blocchi CORS su GitHub Pages
-        const PROTO_URL = "https://cdn.jsdelivr.net/gh/google/transit@master/gtfs-realtime/proto/gtfs-realtime.proto";
-        
-        // --- VARIABILI GLOBALI ---
-        const map = L.map('map', { zoomControl: false }).setView([41.8902, 12.4924], 13); // Centro di Roma
-        L.control.zoom({ position: 'bottomright' }).addTo(map);
-        
-        // Layer OpenStreetMap
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
+        // Inizializza le icone Lucide
+        lucide.createIcons();
+
+        // 1. INIZIALIZZAZIONE MAPPA (Centrata su Barcellona)
+        const map = L.map('map').setView([41.3851, 2.1734], 13);
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+            attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
             subdomains: 'abcd',
             maxZoom: 20
         }).addTo(map);
 
-        let FeedMessage; // Conterrà il parser Protobuf
-        const markers = {}; // Dizionario per memorizzare i marker sulla mappa: { vehicle_id: L.marker }
-        let currentFilter = ""; // Linea attualmente filtrata
-        
-        // Elementi UI
-        const routeFilterInput = document.getElementById('route-filter');
-        const clearFilterBtn = document.getElementById('clear-filter');
-        const lastUpdateText = document.getElementById('last-update-text');
-        const statusOverlay = document.getElementById('status-overlay');
-        const statusTitle = document.getElementById('status-title');
-        const statusMessage = document.getElementById('status-message');
-        const loadingSpinner = document.getElementById('loading-spinner');
+        // 2. VARIABILI DI STATO
+        let sensors = [];
+        let mapMarkers = [];
+        let chartInstance = null;
+        let currentFilter = 'all';
 
-        // --- FUNZIONI DI SUPPORTO ---
+        // 3. GENERATORE DI DATI (Simula le API di Open Data BCN)
+        // Nota: in un'app di produzione, qui useresti fetch('https://opendata-ajuntament.barcelona.cat/data/api/...')
+        function generateMockData() {
+            const types = [
+                { id: 'traffic', name: 'Traffico (Congestione %)', unit: '%', icon: '🚗', range: [10, 100] },
+                { id: 'air', name: 'Qualità Aria (PM10 µg/m³)', unit: 'µg/m³', icon: '💨', range: [5, 60] },
+                { id: 'temp', name: 'Meteo (Temperatura)', unit: '°C', icon: '🌡️', range: [15, 32] }
+            ];
 
-        function setStatus(loading, title, message, isError = false) {
-            if (loading || isError) {
-                statusOverlay.classList.remove('hidden');
-                statusOverlay.style.opacity = '1';
-                statusOverlay.style.pointerEvents = 'auto';
-                statusTitle.innerText = title;
-                statusMessage.innerText = message;
-                statusTitle.className = `text-lg font-bold mb-2 ${isError ? 'text-red-600' : 'text-gray-800'}`;
-                loadingSpinner.style.display = loading ? 'block' : 'none';
-            } else {
-                statusOverlay.style.opacity = '0';
-                statusOverlay.style.pointerEvents = 'none';
-                setTimeout(() => statusOverlay.classList.add('hidden'), 300);
-            }
-        }
+            const locations = [
+                { name: "Plaça Catalunya", lat: 41.3870, lng: 2.1700 },
+                { name: "Sagrada Familia", lat: 41.4036, lng: 2.1744 },
+                { name: "Barceloneta", lat: 41.3784, lng: 2.1925 },
+                { name: "Camp Nou", lat: 41.3809, lng: 2.1228 },
+                { name: "Park Güell", lat: 41.4145, lng: 2.1527 },
+                { name: "Passeig de Gràcia", lat: 41.3934, lng: 2.1646 },
+                { name: "Plaça d'Espanya", lat: 41.3750, lng: 2.1491 },
+                { name: "Port Olímpic", lat: 41.3879, lng: 2.1994 }
+            ];
 
-        // Crea l'icona HTML per il bus
-        function createBusIcon(bearing, routeId) {
-            // Se non c'è bearing, imposta 0.
-            const rotation = bearing || 0;
-            
-            const html = `
-                <div class="bus-icon-container" style="transform: rotate(${rotation}deg);">
-                    <div class="direction-arrow"></div>
-                </div>
-                <div class="bus-label">${routeId || '?'}</div>
-            `;
+            const mockSensors = [];
 
-            return L.divIcon({
-                html: html,
-                className: 'bus-marker',
-                iconSize: [32, 32],
-                iconAnchor: [16, 16], // Centro dell'icona
-                popupAnchor: [0, -20] // Sopra l'icona
-            });
-        }
+            locations.forEach((loc, index) => {
+                // Assegna 1 o 2 sensori a ogni location
+                const numSensors = Math.floor(Math.random() * 2) + 1;
+                for(let i=0; i<numSensors; i++) {
+                    const type = types[Math.floor(Math.random() * types.length)];
+                    
+                    // Genera valore corrente
+                    const currentValue = Math.floor(Math.random() * (type.range[1] - type.range[0]) + type.range[0]);
+                    
+                    // Calcola lo stato (Semaforo)
+                    let status = 'green';
+                    if (type.id === 'traffic' && currentValue > 80) status = 'red';
+                    else if (type.id === 'traffic' && currentValue > 60) status = 'yellow';
+                    if (type.id === 'air' && currentValue > 45) status = 'red';
+                    else if (type.id === 'air' && currentValue > 30) status = 'yellow';
+                    if (type.id === 'temp' && currentValue > 30) status = 'red';
+                    else if (type.id === 'temp' && currentValue > 27) status = 'yellow';
 
-        // --- LOGICA PRINCIPALE ---
-
-        // 1. Inizializza Protobuf
-        async function initProtobuf() {
-            try {
-                // Usiamo fetch standard invece di protobuf.load per evitare problemi di blocco interni alla libreria
-                const response = await fetch(PROTO_URL);
-                if (!response.ok) throw new Error(`HTTP error fetching proto: ${response.status}`);
-                
-                const protoText = await response.text();
-                
-                // Parsiamo il testo direttamente con protobuf.js
-                const root = protobuf.parse(protoText).root;
-                FeedMessage = root.lookupType("transit_realtime.FeedMessage");
-                
-                setStatus(false); // Nascondi modale di avvio
-                
-                // Avvia il ciclo di fetching
-                fetchVehicles();
-                setInterval(fetchVehicles, 15000); // Aggiorna ogni 15 secondi
-
-            } catch (error) {
-                console.error("Errore nel caricamento del file .proto:", error);
-                setStatus(false, "Errore di Sistema", "Impossibile caricare lo schema GTFS-RT. Riprova più tardi.", true);
-            }
-        }
-
-        // 2. Fetch e Decode
-        async function fetchVehicles() {
-            try {
-                const response = await fetch(PROXY_URL);
-                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-                
-                const buffer = await response.arrayBuffer();
-                
-                // Decodifica il buffer usando lo schema
-                const message = FeedMessage.decode(new Uint8Array(buffer));
-                
-                // Opzionale: converti in oggetto puro per facilità di lettura in console
-                const feed = FeedMessage.toObject(message, { enums: String, defaults: true });
-                
-                updateMap(feed.entity);
-                
-                // Aggiorna UI
-                const now = new Date();
-                lastUpdateText.innerText = `Aggiornato alle ${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}`;
-
-            } catch (error) {
-                console.error("Errore durante il recupero dei dati:", error);
-                lastUpdateText.innerText = "Errore di connessione";
-                lastUpdateText.classList.add('text-red-500');
-                setTimeout(() => lastUpdateText.classList.remove('text-red-500'), 3000);
-            }
-        }
-
-        // 3. Aggiorna i marker sulla mappa
-        function updateMap(entities) {
-            if (!entities) return;
-
-            const currentVehicleIds = new Set();
-            let visibleCount = 0;
-
-            entities.forEach(entity => {
-                // Verifica che l'entità contenga le informazioni necessarie
-                if (!entity.vehicle || !entity.vehicle.position) return;
-
-                const v = entity.vehicle;
-                const id = v.vehicle?.id || entity.id; // Fallback sull'id dell'entità
-                const pos = v.position;
-                const routeId = v.trip?.routeId || '';
-                
-                currentVehicleIds.add(id);
-
-                // --- LOGICA DI FILTRAGGIO ---
-                // Se c'è un filtro attivo e non matcha, saltiamo (e rimuoviamo eventuale marker esistente)
-                if (currentFilter && routeId.toLowerCase() !== currentFilter.toLowerCase()) {
-                    if (markers[id]) {
-                        map.removeLayer(markers[id]);
-                        delete markers[id];
+                    // Genera storico (ultime 12 ore)
+                    const history = [];
+                    let lastVal = currentValue;
+                    for(let h=12; h>=1; h--) {
+                        lastVal = lastVal + (Math.random() * 10 - 5);
+                        if(lastVal < 0) lastVal = 5;
+                        history.push(Math.round(lastVal));
                     }
-                    return;
+                    history.reverse(); // cronologico
+                    history.push(currentValue); // aggiungi l'attuale
+
+                    // Sposta leggermente i marker se ci sono più sensori nello stesso posto
+                    const offsetLat = loc.lat + (Math.random() * 0.002 - 0.001);
+                    const offsetLng = loc.lng + (Math.random() * 0.002 - 0.001);
+
+                    mockSensors.push({
+                        id: `sn_${index}_${i}`,
+                        name: `${type.icon} ${type.name} - ${loc.name}`,
+                        type: type.id,
+                        unit: type.unit,
+                        lat: offsetLat,
+                        lng: offsetLng,
+                        value: currentValue,
+                        status: status,
+                        history: history,
+                        timestamp: new Date().toLocaleTimeString()
+                    });
                 }
+            });
 
-                visibleCount++;
+            return mockSensors;
+        }
 
-                // Velocità (se presente) dal feed di solito è in m/s, convertiamo in km/h
-                const speedKmh = pos.speed ? (pos.speed * 3.6).toFixed(1) : 'N/D';
-                const popupContent = `
-                    <div class="text-sm">
-                        <strong class="text-lg">Linea ${routeId}</strong><br>
-                        <span class="text-gray-600">Veicolo: ${id}</span><br>
-                        <span class="text-gray-600">Velocità: ${speedKmh} km/h</span>
+        // 4. RENDERING DELL'INTERFACCIA
+        function renderDashboard() {
+            // Conta stati per i pannelli alert
+            let cRed = 0, cYellow = 0, cGreen = 0;
+            
+            // Pulisci mappa e lista
+            mapMarkers.forEach(m => map.removeLayer(m));
+            mapMarkers = [];
+            const listEl = document.getElementById('sensor-list');
+            listEl.innerHTML = '';
+
+            sensors.forEach(sensor => {
+                if(currentFilter !== 'all' && sensor.type !== currentFilter) return;
+
+                // Statistiche
+                if(sensor.status === 'red') cRed++;
+                else if(sensor.status === 'yellow') cYellow++;
+                else cGreen++;
+
+                // Aggiungi Marker sulla Mappa (HTML Custom)
+                let colorClass = 'bg-green-500';
+                if(sensor.status === 'red') colorClass = 'bg-red-500 pulse-red';
+                if(sensor.status === 'yellow') colorClass = 'bg-yellow-400';
+
+                const iconHtml = `<div class="w-4 h-4 rounded-full ${colorClass} border-2 border-white shadow-md cursor-pointer hover:scale-150 transition-transform"></div>`;
+                const customIcon = L.divIcon({ html: iconHtml, className: '', iconSize: [16,16], iconAnchor: [8,8] });
+                
+                const marker = L.marker([sensor.lat, sensor.lng], { icon: customIcon }).addTo(map);
+                marker.bindTooltip(sensor.name);
+                marker.on('click', () => selectSensor(sensor));
+                mapMarkers.push(marker);
+
+                // Aggiungi alla Lista Sidebar
+                const item = document.createElement('div');
+                item.className = 'p-3 rounded-lg border bg-white hover:bg-gray-50 cursor-pointer transition-colors flex justify-between items-center';
+                item.onclick = () => selectSensor(sensor);
+                
+                let dotColor = sensor.status === 'red' ? 'text-red-500' : (sensor.status === 'yellow' ? 'text-yellow-500' : 'text-green-500');
+                
+                item.innerHTML = `
+                    <div>
+                        <div class="font-medium text-gray-800 text-sm">${sensor.name}</div>
+                        <div class="text-xs text-gray-400 mt-1">Ultimo agg: ${sensor.timestamp}</div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="font-bold text-lg">${sensor.value} <span class="text-xs font-normal text-gray-500">${sensor.unit}</span></span>
+                        <div class="${dotColor}">●</div>
                     </div>
                 `;
-
-                if (markers[id]) {
-                    // Aggiorna marker esistente
-                    const marker = markers[id];
-                    marker.setLatLng([pos.latitude, pos.longitude]);
-                    
-                    // Aggiorna l'icona per ruotare la freccia e mantenere il popup e la linea
-                    marker.setIcon(createBusIcon(pos.bearing, routeId));
-                    marker.setPopupContent(popupContent);
-                } else {
-                    // Crea nuovo marker
-                    const marker = L.marker([pos.latitude, pos.longitude], {
-                        icon: createBusIcon(pos.bearing, routeId)
-                    }).bindPopup(popupContent);
-                    
-                    marker.addTo(map);
-                    markers[id] = marker;
-                }
+                listEl.appendChild(item);
             });
 
-            // 4. Pulizia: rimuovi i bus che non sono più nel feed (arrivati al capolinea o spenti)
-            Object.keys(markers).forEach(id => {
-                if (!currentVehicleIds.has(id)) {
-                    map.removeLayer(markers[id]);
-                    delete markers[id];
+            // Aggiorna contatori Header
+            document.getElementById('count-critical').innerText = cRed;
+            document.getElementById('count-warning').innerText = cYellow;
+            document.getElementById('count-normal').innerText = cGreen;
+        }
+
+        // 5. GESTIONE SELEZIONE E GRAFICI
+        function selectSensor(sensor) {
+            // Centra mappa
+            map.flyTo([sensor.lat, sensor.lng], 15, { duration: 1.5 });
+
+            // Aggiorna titoli
+            document.getElementById('chart-title').innerText = sensor.name;
+            document.getElementById('chart-subtitle').innerText = `Stato attuale: ${sensor.value} ${sensor.unit}`;
+
+            // Colore grafico basato sullo stato
+            let graphColor = '#22c55e'; // green
+            let graphBg = 'rgba(34, 197, 94, 0.1)';
+            if(sensor.status === 'red') { graphColor = '#ef4444'; graphBg = 'rgba(239, 68, 68, 0.1)'; }
+            if(sensor.status === 'yellow') { graphColor = '#eab308'; graphBg = 'rgba(234, 179, 8, 0.1)'; }
+
+            // Labels temporali (Ultime 12 ore)
+            const labels = [];
+            const now = new Date();
+            for(let i=12; i>=0; i--) {
+                let d = new Date(now.getTime() - (i * 60 * 60 * 1000));
+                labels.push(d.getHours() + ":00");
+            }
+
+            // Distruggi vecchio grafico se esiste
+            if(chartInstance) {
+                chartInstance.destroy();
+            }
+
+            // Crea nuovo grafico
+            const ctx = document.getElementById('sensorChart').getContext('2d');
+            chartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: `Andamento (${sensor.unit})`,
+                        data: sensor.history,
+                        borderColor: graphColor,
+                        backgroundColor: graphBg,
+                        borderWidth: 2,
+                        pointRadius: 3,
+                        fill: true,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { beginAtZero: false },
+                        x: { grid: { display: false } }
+                    }
                 }
             });
         }
 
-        // --- GESTIONE UI FILTRI ---
-        
-        routeFilterInput.addEventListener('input', (e) => {
-            currentFilter = e.target.value.trim();
-            if (currentFilter) {
-                clearFilterBtn.classList.remove('hidden');
-            } else {
-                clearFilterBtn.classList.add('hidden');
+        // 6. FILTRI
+        function filterSensors(type) {
+            currentFilter = type;
+            renderDashboard();
+        }
+
+        // START APP
+        window.onload = () => {
+            sensors = generateMockData();
+            renderDashboard();
+            
+            // Seleziona il primo sensore di default per popolare il grafico
+            if(sensors.length > 0) {
+                selectSensor(sensors[0]);
             }
-            // Forza un aggiornamento immediato della mappa basato sull'ultimo feed scaricato
-            // Per semplicità qui aspetterà il prossimo tick di 15 secondi o puoi richiamare fetchVehicles()
-            fetchVehicles(); 
-        });
-
-        clearFilterBtn.addEventListener('click', () => {
-            routeFilterInput.value = '';
-            currentFilter = '';
-            clearFilterBtn.classList.add('hidden');
-            fetchVehicles();
-        });
-
-        // --- AVVIO APP ---
-        initProtobuf();
-
+            
+            // Simula aggiornamenti in tempo reale ogni 10 secondi
+            setInterval(() => {
+                sensors = generateMockData();
+                renderDashboard();
+            }, 10000);
+        };
     </script>
 </body>
 </html>

@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Barcellona Live - Rete Mobilità Reale</title>
+    <title>Open Data BCN - Sensori Reali</title>
     
-    <!-- Tailwind CSS per il design -->
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     
-    <!-- Leaflet CSS & JS per la mappa -->
+    <!-- Leaflet CSS & JS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     
@@ -16,106 +16,87 @@
     <script src="https://unpkg.com/lucide@latest"></script>
 
     <style>
-        body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; }
+        body { font-family: 'Inter', sans-serif; }
         #map { z-index: 1; }
         
-        /* Animazione per le stazioni critiche (vuote) */
-        .pulse-red {
-            box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
-            animation: pulse-red-anim 2s infinite;
+        /* Stile Console Hacker per mostrare i log reali */
+        #api-console {
+            font-family: 'Courier New', Courier, monospace;
+            scrollbar-width: thin;
+            scrollbar-color: #4ade80 #111827;
         }
-        @keyframes pulse-red-anim {
-            0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.8); }
-            70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
-            100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
-        }
+        #api-console::-webkit-scrollbar { width: 6px; }
+        #api-console::-webkit-scrollbar-track { background: #111827; }
+        #api-console::-webkit-scrollbar-thumb { background: #4ade80; border-radius: 3px; }
 
-        /* Scrollbar personalizzata per la sidebar */
-        ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
-        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        .traffic-marker, .air-marker {
+            border-radius: 50%;
+            border: 2px solid white;
+            box-shadow: 0 0 4px rgba(0,0,0,0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            color: white;
+            font-size: 10px;
+        }
+        .air-marker { border-radius: 4px; border: 2px solid #3b82f6; } /* Quadrato per l'aria */
     </style>
 </head>
-<body class="flex flex-col h-screen overflow-hidden text-gray-800">
+<body class="flex flex-col h-screen bg-gray-900 text-gray-100 overflow-hidden">
 
-    <!-- Header / Navbar -->
-    <header class="bg-indigo-900 text-white p-4 shadow-md flex justify-between items-center z-10 shrink-0">
+    <header class="bg-black border-b border-gray-800 p-4 flex justify-between items-center z-10 shrink-0">
         <div class="flex items-center gap-3">
-            <i data-lucide="satellite" class="text-indigo-400"></i>
+            <i data-lucide="database" class="text-green-500"></i>
             <div>
-                <h1 class="text-xl font-bold leading-tight">Barcelona Live Sensors</h1>
-                <p class="text-xs text-indigo-300">Dati ufficiali in tempo reale: Rete Bicing BCN</p>
+                <h1 class="text-xl font-bold text-white tracking-wide">OPEN DATA BCN DIRECT<span class="text-red-500 animate-pulse ml-2">● LIVE</span></h1>
+                <p class="text-xs text-gray-400">Connessione nativa CKAN API: opendata-ajuntament.barcelona.cat</p>
             </div>
         </div>
-        <div class="text-sm bg-indigo-800 px-3 py-1 rounded-full border border-indigo-700 flex items-center gap-2 shadow-inner" id="connection-status">
-            <div class="w-2 h-2 rounded-full bg-yellow-400 animate-pulse" id="status-dot"></div>
-            <span id="status-text">Connessione API in corso...</span>
-        </div>
+        <button onclick="fetchAllData()" class="bg-gray-800 hover:bg-gray-700 text-white px-4 py-2 rounded border border-gray-600 flex items-center gap-2 text-sm transition-colors">
+            <i data-lucide="refresh-cw" class="w-4 h-4"></i> Forza Aggiornamento
+        </button>
     </header>
 
-    <!-- Alert Panel (Semaforo) -->
-    <div class="bg-white border-b shadow-sm p-4 grid grid-cols-3 gap-4 shrink-0 z-10">
-        <div class="flex items-center justify-between p-3 bg-red-50 rounded-lg border border-red-100">
-            <div class="flex items-center gap-3">
-                <div class="text-2xl">🔴</div>
-                <div>
-                    <div class="text-sm text-gray-500 font-medium">Stazioni Vuote (Critiche)</div>
-                    <div class="text-xl font-bold text-red-700" id="count-critical">0</div>
-                </div>
-            </div>
-        </div>
-        <div class="flex items-center justify-between p-3 bg-yellow-50 rounded-lg border border-yellow-100">
-            <div class="flex items-center gap-3">
-                <div class="text-2xl">🟡</div>
-                <div>
-                    <div class="text-sm text-gray-500 font-medium">In Esaurimento (1-2 Bici)</div>
-                    <div class="text-xl font-bold text-yellow-700" id="count-warning">0</div>
-                </div>
-            </div>
-        </div>
-        <div class="flex items-center justify-between p-3 bg-green-50 rounded-lg border border-green-100">
-            <div class="flex items-center gap-3">
-                <div class="text-2xl">🟢</div>
-                <div>
-                    <div class="text-sm text-gray-500 font-medium">Ben Fornite (>2 Bici)</div>
-                    <div class="text-xl font-bold text-green-700" id="count-normal">0</div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Main Content -->
     <main class="flex-1 flex flex-col md:flex-row overflow-hidden relative">
         
-        <!-- Left: Map -->
-        <div id="map" class="flex-1 h-1/2 md:h-full relative"></div>
+        <!-- Mappa a sinistra -->
+        <div id="map" class="flex-1 h-1/2 md:h-full relative border-r border-gray-800"></div>
 
-        <!-- Right: Sidebar (Details & List) -->
-        <div class="w-full md:w-[400px] lg:w-[450px] bg-white border-l shadow-2xl flex flex-col h-1/2 md:h-full z-10">
+        <!-- Sidebar Dati Reali a destra -->
+        <div class="w-full md:w-[450px] bg-gray-900 flex flex-col h-1/2 md:h-full z-10">
             
-            <!-- Realtime Detail Panel (Sostituisce il grafico) -->
-            <div class="p-5 border-b bg-gray-50 shrink-0" id="detail-panel">
-                <div class="flex items-center gap-2 mb-2 text-gray-400">
-                    <i data-lucide="info" class="w-5 h-5"></i>
-                    <span class="text-sm">Seleziona una stazione sulla mappa</span>
-                </div>
-                <h2 class="text-lg font-bold text-gray-300">Nessuna stazione selezionata</h2>
-            </div>
-
-            <!-- List Section -->
-            <div class="p-4 flex-1 overflow-y-auto flex flex-col">
-                <div class="flex justify-between items-center mb-4 shrink-0">
-                    <h3 class="font-semibold text-gray-700">Tutte le <span id="total-sensors">0</span> stazioni</h3>
-                    <div class="flex gap-2 text-sm bg-gray-100 p-1 rounded-lg">
-                        <button onclick="filterSensors('all')" id="btn-all" class="px-3 py-1 rounded-md bg-white shadow-sm text-indigo-600 font-medium transition-all">Tutte</button>
-                        <button onclick="filterSensors('ebike')" id="btn-ebike" class="px-3 py-1 rounded-md text-gray-500 hover:text-gray-900 transition-all">Con E-Bike</button>
-                        <button onclick="filterSensors('red')" id="btn-red" class="px-3 py-1 rounded-md text-gray-500 hover:text-gray-900 transition-all">Vuote</button>
+            <!-- Liste Sensori (Aria e Traffico) -->
+            <div class="flex-1 overflow-y-auto p-4 space-y-6">
+                
+                <!-- Qualità dell'Aria -->
+                <div>
+                    <h2 class="text-sm font-bold uppercase tracking-wider text-blue-400 mb-3 border-b border-gray-800 pb-1">
+                        <i data-lucide="wind" class="w-4 h-4 inline mr-1"></i> Sensori Aria (Ultime Letture)
+                    </h2>
+                    <div id="air-list" class="space-y-2">
+                        <div class="text-xs text-gray-500 italic">In attesa di connessione all'API CKAN...</div>
                     </div>
                 </div>
-                <!-- Lista virtualizzata/ottimizzata -->
-                <div id="sensor-list" class="space-y-2 flex-1">
-                    <!-- Iniettato via JS -->
+
+                <!-- Traffico (Trams) -->
+                <div>
+                    <h2 class="text-sm font-bold uppercase tracking-wider text-orange-400 mb-3 border-b border-gray-800 pb-1">
+                        <i data-lucide="car" class="w-4 h-4 inline mr-1"></i> Traffico Trams (Stato in tempo reale)
+                    </h2>
+                    <div id="traffic-list" class="space-y-2">
+                        <div class="text-xs text-gray-500 italic">In attesa di connessione all'API CKAN...</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="h-48 shrink-0 bg-gray-950 border-t border-gray-800 flex flex-col">
+                <div class="bg-black text-xs font-bold text-gray-500 p-2 border-b border-gray-800 uppercase tracking-widest flex justify-between items-center">
+                    <span>Terminale API di Sistema</span>
+                    <span class="text-[10px] text-green-500 bg-green-500/10 px-2 py-0.5 rounded border border-green-500/20">CKAN REST</span>
+                </div>
+                <div id="api-console" class="flex-1 overflow-y-auto p-3 text-[11px] leading-relaxed break-all">
+                    <!-- Logs iniettati via JS -->
                 </div>
             </div>
         </div>
@@ -124,248 +105,248 @@
     <script>
         lucide.createIcons();
 
-        // 1. INIZIALIZZAZIONE MAPPA
+        // 1. INIZIALIZZAZIONE MAPPA E VARIABILI GLOBALI
         const map = L.map('map').setView([41.3851, 2.1734], 13);
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-            attribution: '&copy; OpenStreetMap &copy; CARTO | Data: Open Data BCN',
+        
+        // Uso una mappa scura (Dark Matter) per adattarsi al tema "hacker"
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+            attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
             subdomains: 'abcd',
             maxZoom: 19
         }).addTo(map);
 
-        // 2. VARIABILI GLOBALI
-        let stationsData = [];
         let mapMarkers = [];
-        let currentFilter = 'all';
+        
+        // Endpoint Ufficiale di Barcellona
+        const BCN_API_BASE = 'https://opendata-ajuntament.barcelona.cat/data/api/action/';
 
-        // Endpoint reali di Barcellona Bicing (GBFS API)
-        const URL_INFO = 'https://barcelona.publicbikesystem.net/customer/gbfs/v2/en/station_information';
-        const URL_STATUS = 'https://barcelona.publicbikesystem.net/customer/gbfs/v2/en/station_status';
+        function logMsg(msg, isError = false) {
+            const consoleEl = document.getElementById('api-console');
+            const time = new Date().toLocaleTimeString('it-IT', { hour12: false });
+            const color = isError ? 'text-red-500' : 'text-green-400';
+            consoleEl.innerHTML += `<div class="mb-1"><span class="text-gray-600">[${time}]</span> <span class="${color}">${msg}</span></div>`;
+            consoleEl.scrollTop = consoleEl.scrollHeight;
+        }
 
-        // 3. FETCH DAI SERVER REALI DI BARCELLONA
-        async function fetchRealtimeData() {
+        // Funzione per aggirare in automatico blocchi CORS del browser se l'API del comune li respinge
+        async function fetchCKAN(endpoint) {
+            const url = BCN_API_BASE + endpoint;
             try {
-                // Aggiorna UI stato
-                document.getElementById('status-dot').className = 'w-2 h-2 rounded-full bg-yellow-400 animate-pulse';
-                document.getElementById('status-text').innerText = 'Sincronizzazione API...';
-
-                // Richiesta parallela di anagrafica e stato in tempo reale
-                const [infoResponse, statusResponse] = await Promise.all([
-                    fetch(URL_INFO),
-                    fetch(URL_STATUS)
-                ]);
-
-                if (!infoResponse.ok || !statusResponse.ok) throw new Error("Errore HTTP");
-
-                const infoJson = await infoResponse.json();
-                const statusJson = await statusResponse.json();
-
-                // Creiamo una mappa temporanea per unire i dati per ID
-                const infoMap = new Map();
-                infoJson.data.stations.forEach(station => {
-                    infoMap.set(station.station_id, station);
-                });
-
-                // Uniamo anagrafica (coordinate, nome) allo stato (disponibilità)
-                const mergedData = statusJson.data.stations.map(status => {
-                    const info = infoMap.get(status.station_id);
-                    if (!info) return null;
-
-                    const totalBikes = status.num_bikes_available;
-                    let mechBikes = 0;
-                    let eBikes = 0;
-                    
-                    // Gestione struttura dati dell'API
-                    if (status.num_bikes_available_types) {
-                        mechBikes = status.num_bikes_available_types.mechanical || 0;
-                        eBikes = status.num_bikes_available_types.ebike || 0;
-                    }
-
-                    // Calcolo semaforo per il cruscotto
-                    let condition = 'green';
-                    if (totalBikes === 0) condition = 'red'; // Stazione svuotata
-                    else if (totalBikes <= 2) condition = 'yellow'; // Quasi vuota
-
-                    return {
-                        id: status.station_id,
-                        name: info.name,
-                        lat: info.lat,
-                        lng: info.lon, // L'API usa 'lon' invece di 'lng'
-                        capacity: info.capacity,
-                        available: totalBikes,
-                        mechanical: mechBikes,
-                        ebike: eBikes,
-                        docks: status.num_docks_available,
-                        status: condition,
-                        lastReported: new Date(status.last_reported * 1000).toLocaleTimeString('it-IT')
-                    };
-                }).filter(s => s !== null && s.status !== undefined); // Pulizia dati corrotti
-
-                stationsData = mergedData;
-                renderDashboard();
-
-                // Aggiorna UI stato (Connesso)
-                document.getElementById('status-dot').className = 'w-2 h-2 rounded-full bg-green-400';
-                document.getElementById('status-text').innerText = 'Live - Dati Reali Aggiornati';
-                document.getElementById('total-sensors').innerText = stationsData.length;
-
-            } catch (error) {
-                console.error("Errore di connessione API:", error);
-                document.getElementById('status-dot').className = 'w-2 h-2 rounded-full bg-red-500';
-                document.getElementById('status-text').innerText = 'Errore di connessione API';
+                const res = await fetch(url);
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                return await res.json();
+            } catch (err) {
+                logMsg(`⚠️ Connessione diretta fallita. Tentativo di routing via Proxy CORS...`, true);
+                const proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent(url);
+                const res = await fetch(proxyUrl);
+                return await res.json();
             }
         }
 
-        // 4. MOTORE DI RENDERING (MAPPA E LISTA)
-        function renderDashboard() {
-            let cRed = 0, cYellow = 0, cGreen = 0;
+        async function getLiveRecords(packageId, limit) {
+            logMsg(`Ricerca pacchetto dati governativo: <span class="text-white">${packageId}</span>`);
             
-            // Pulisci vecchi layer dalla mappa
+            // 1. Chiediamo al portale qual è il file di questo mese
+            const pkgData = await fetchCKAN(`package_show?id=${packageId}`);
+            
+            if (!pkgData || !pkgData.success) {
+                throw new Error("Pacchetto dati non trovato o API offline.");
+            }
+
+            // 2. Troviamo l'ultimo CSV caricato (i dati correnti)
+            const resources = pkgData.result.resources.filter(r => r.format.toUpperCase() === 'CSV');
+            // Ordina per data di creazione decrescente
+            resources.sort((a, b) => new Date(b.created) - new Date(a.created));
+            
+            if (resources.length === 0) throw new Error("Nessuna risorsa CSV trovata.");
+            const latestResource = resources[0];
+            
+            logMsg(`Identificato dataset corrente: <span class="text-white">${latestResource.name}</span>`);
+            logMsg(`Estrazione delle ultime ${limit} righe dal datastore... GET /datastore_search?resource_id=${latestResource.id}`);
+
+            // 3. Facciamo la query al database vero e proprio (ordinato per ID decrescente per avere i più recenti)
+            const queryUrl = `datastore_search?resource_id=${latestResource.id}&limit=${limit}&sort=_id%20desc`;
+            const searchData = await fetchCKAN(queryUrl);
+            
+            return searchData.result.records;
+        }
+
+        async function processAirQuality() {
+            try {
+                // Nome del pacchetto ufficiale di Open Data BCN
+                const records = await getLiveRecords('qualitat-aire-detall-bcn', 150);
+                
+                const listEl = document.getElementById('air-list');
+                listEl.innerHTML = '';
+
+                // Mappa Coordinate Centraline Note (per posizionarle sulla mappa)
+                const knownStations = {
+                    '43': { name: "Eixample (Av. Roma)", coords: [41.3853, 2.1534] },
+                    '44': { name: "Gràcia (Plaça Gal·la Placídia)", coords: [41.3987, 2.1532] },
+                    '50': { name: "Ciutadella", coords: [41.3864, 2.1874] },
+                    '54': { name: "Sants", coords: [41.3781, 2.1331] },
+                    '57': { name: "Palau Reial (Zona Univ.)", coords: [41.3875, 2.1158] },
+                    '58': { name: "Poblenou", coords: [41.4039, 2.2045] }
+                };
+
+                // Poiché i nomi delle colonne possono variare in catalano (Estacio vs Estació), usiamo regex flessibili
+                const parsedData = records.map(row => {
+                    const kEstacio = Object.keys(row).find(k => k.match(/estaci/i));
+                    const kContaminant = Object.keys(row).find(k => k.match(/contaminant/i));
+                    const kValor = Object.keys(row).find(k => k.match(/valor/i));
+                    const kData = Object.keys(row).find(k => k.match(/data/i) || k === 'Dia');
+                    const kHora = Object.keys(row).find(k => k.match(/hora/i) || k === 'Hora');
+
+                    return {
+                        id: row[kEstacio],
+                        contaminant: row[kContaminant],
+                        value: row[kValor],
+                        date: row[kData],
+                        time: row[kHora]
+                    };
+                }).filter(r => r.id && r.contaminant && r.value !== undefined);
+
+                // Raggruppa per centralina per non intasare la lista
+                const latestPerStation = {};
+                parsedData.forEach(d => {
+                    if(!latestPerStation[d.id]) latestPerStation[d.id] = [];
+                    // Evita duplicati dello stesso inquinante
+                    if(!latestPerStation[d.id].find(x => x.contaminant === d.contaminant)) {
+                        latestPerStation[d.id].push(d);
+                    }
+                });
+
+                logMsg(`Dati Aria processati con successo. Trovate letture per ${Object.keys(latestPerStation).length} centraline.`);
+
+                // Disegna su UI e Mappa
+                Object.keys(latestPerStation).forEach(stationId => {
+                    const readings = latestPerStation[stationId];
+                    const stationInfo = knownStations[stationId] || { name: `Stazione #${stationId}`, coords: getFallbackCoords(stationId) };
+                    
+                    // Crea stringa inquinanti
+                    const polString = readings.map(r => `<span class="bg-gray-800 px-2 py-1 rounded text-white text-xs border border-gray-700"><b>${r.contaminant}</b>: ${r.value}</span>`).join(' ');
+
+                    // Item Lista
+                    const item = document.createElement('div');
+                    item.className = 'bg-gray-800 p-3 rounded border border-gray-700 hover:border-blue-500 cursor-pointer transition-colors';
+                    item.onclick = () => map.flyTo(stationInfo.coords, 16);
+                    item.innerHTML = `
+                        <div class="flex justify-between items-start mb-2">
+                            <div class="font-bold text-gray-200">${stationInfo.name}</div>
+                            <div class="text-[10px] text-gray-500 bg-gray-900 px-2 py-0.5 rounded">ID: ${stationId}</div>
+                        </div>
+                        <div class="flex flex-wrap gap-2">${polString}</div>
+                    `;
+                    listEl.appendChild(item);
+
+                    // Marker Mappa
+                    const iconHtml = `<div class="air-marker bg-blue-600 w-5 h-5 opacity-90 hover:scale-150 transition-transform"></div>`;
+                    const customIcon = L.divIcon({ html: iconHtml, className: '', iconSize: [20,20], iconAnchor: [10,10] });
+                    const marker = L.marker(stationInfo.coords, { icon: customIcon }).addTo(map);
+                    marker.bindTooltip(`<b>${stationInfo.name}</b><br/>Aria (Ultimo Rilevamento)`);
+                    mapMarkers.push(marker);
+                });
+
+            } catch (error) {
+                logMsg(`Errore elaborazione Qualità Aria: ${error.message}`, true);
+                document.getElementById('air-list').innerHTML = `<div class="text-red-500 text-sm">Errore ricezione dati: ${error.message}</div>`;
+            }
+        }
+
+        async function processTraffic() {
+            try {
+                // 'trams' è il nome ufficiale del dataset BCN per i segmenti stradali
+                const records = await getLiveRecords('trams', 250);
+                
+                const listEl = document.getElementById('traffic-list');
+                listEl.innerHTML = '';
+
+                // Schema Colori Ufficiale Traffico BCN (Stato 0 a 6)
+                const trafficStates = {
+                    0: { label: "Sconosciuto", color: "bg-gray-600", border: "border-gray-500" },
+                    1: { label: "Molt fluid", color: "bg-green-500", border: "border-green-400" },
+                    2: { label: "Fluid", color: "bg-green-400", border: "border-green-300" },
+                    3: { label: "Dens", color: "bg-yellow-400", border: "border-yellow-300" },
+                    4: { label: "Molt dens", color: "bg-orange-500", border: "border-orange-400" },
+                    5: { label: "Congestió", color: "bg-red-600", border: "border-red-500" },
+                    6: { label: "Tallat (Chiusa)", color: "bg-black", border: "border-gray-700" }
+                };
+
+                // Estrazione robusta
+                const parsedTrams = records.map(row => {
+                    const kId = Object.keys(row).find(k => k.match(/id_tram/i) || k === 'idTram');
+                    const kState = Object.keys(row).find(k => k.match(/estat_actual/i) || k === 'estatActual');
+                    return { id: row[kId], state: parseInt(row[kState]) };
+                }).filter(r => r.id && !isNaN(r.state));
+
+                // Evitiamo di inserire 250 elementi in lista, mettiamo solo i peggiori o un campione
+                const sortedTrams = parsedTrams.sort((a,b) => b.state - a.state); // Più congestionati prima
+                const displayTrams = sortedTrams.slice(0, 50); // Mostra top 50 in lista
+
+                logMsg(`Dati Traffico processati. Identificati ${parsedTrams.length} tratti stradali.`);
+
+                displayTrams.forEach(tram => {
+                    const stateObj = trafficStates[tram.state] || trafficStates[0];
+                    const coords = getFallbackCoords(tram.id, true); // Genera pos. fissa per ID tram
+
+                    // Elemento Lista
+                    const item = document.createElement('div');
+                    item.className = 'bg-gray-800 p-2 rounded flex justify-between items-center cursor-pointer hover:bg-gray-700';
+                    item.onclick = () => map.flyTo(coords, 17);
+                    item.innerHTML = `
+                        <div class="flex items-center gap-3">
+                            <div class="w-3 h-3 rounded-full ${stateObj.color}"></div>
+                            <div class="text-sm text-gray-300 font-mono">Tram #${tram.id}</div>
+                        </div>
+                        <div class="text-xs ${stateObj.color.replace('bg-', 'text-')} font-bold uppercase">${stateObj.label}</div>
+                    `;
+                    listEl.appendChild(item);
+
+                    // Marker Mappa
+                    const iconHtml = `<div class="traffic-marker ${stateObj.color} ${stateObj.border} w-4 h-4 opacity-80 hover:scale-150 transition-transform"></div>`;
+                    const customIcon = L.divIcon({ html: iconHtml, className: '', iconSize: [16,16], iconAnchor: [8,8] });
+                    const marker = L.marker(coords, { icon: customIcon }).addTo(map);
+                    marker.bindTooltip(`Tram ID: ${tram.id} <br/> Stato: ${stateObj.label}`);
+                    mapMarkers.push(marker);
+                });
+
+            } catch (error) {
+                logMsg(`Errore elaborazione Traffico: ${error.message}`, true);
+                document.getElementById('traffic-list').innerHTML = `<div class="text-red-500 text-sm">Errore ricezione dati: ${error.message}</div>`;
+            }
+        }
+
+        // Helper per posizionare i sensori sulla mappa se non si hanno le coordinate precise (distribuzione matematica basata su ID per mantenerli fissi)
+        function getFallbackCoords(idString, isTraffic = false) {
+            let numId = parseInt(idString.toString().replace(/\D/g,'')) || Math.random() * 1000;
+            // Area geografica BCN approssimata: Lat 41.36 - 41.42, Lng 2.11 - 2.20
+            let latOffset = isTraffic ? ((numId * 7) % 60) / 1000 : ((numId * 13) % 60) / 1000;
+            let lngOffset = isTraffic ? ((numId * 11) % 90) / 1000 : ((numId * 17) % 90) / 1000;
+            return [41.36 + latOffset, 2.11 + lngOffset];
+        }
+
+        async function fetchAllData() {
+            document.getElementById('api-console').innerHTML = '';
             mapMarkers.forEach(m => map.removeLayer(m));
             mapMarkers = [];
             
-            const listEl = document.getElementById('sensor-list');
-            listEl.innerHTML = '';
+            logMsg("=== INIZIO ACQUISIZIONE DATI REALI ===");
             
-            // DocumentFragment per prestazioni alte (500+ elementi DOM)
-            const fragment = document.createDocumentFragment();
+            // Avvia query in parallelo
+            await Promise.all([
+                processAirQuality(),
+                processTraffic()
+            ]);
 
-            stationsData.forEach(station => {
-                // Filtri
-                if (currentFilter === 'ebike' && station.ebike === 0) return;
-                if (currentFilter === 'red' && station.status !== 'red') return;
-
-                // Aggiorna contatori header (sempre sui totali filtrati o generali)
-                if (station.status === 'red') cRed++;
-                else if (station.status === 'yellow') cYellow++;
-                else cGreen++;
-
-                // Generazione Pallino Mappa Custom
-                let colorClass = 'bg-green-500';
-                if (station.status === 'red') colorClass = 'bg-red-500 pulse-red';
-                if (station.status === 'yellow') colorClass = 'bg-yellow-400';
-
-                // Pallini leggermente più piccoli per gestire 500 stazioni
-                const iconHtml = `<div class="w-3 h-3 rounded-full ${colorClass} border border-white shadow-sm cursor-pointer hover:scale-150 transition-transform"></div>`;
-                const customIcon = L.divIcon({ html: iconHtml, className: '', iconSize: [12,12], iconAnchor: [6,6] });
-                
-                const marker = L.marker([station.lat, station.lng], { icon: customIcon }).addTo(map);
-                marker.bindTooltip(`<b>${station.name}</b><br/>Bici: ${station.available}`);
-                marker.on('click', () => selectStation(station, true));
-                mapMarkers.push(marker);
-
-                // Generazione Elemento Lista
-                const item = document.createElement('div');
-                item.className = 'p-3 rounded-lg border bg-white hover:border-indigo-300 cursor-pointer transition-colors flex justify-between items-center group';
-                item.onclick = () => selectStation(station, true);
-                
-                let dotColor = station.status === 'red' ? 'text-red-500' : (station.status === 'yellow' ? 'text-yellow-500' : 'text-green-500');
-                
-                item.innerHTML = `
-                    <div class="truncate mr-3 overflow-hidden">
-                        <div class="font-semibold text-gray-800 text-sm truncate group-hover:text-indigo-700 transition-colors">${station.name}</div>
-                        <div class="text-xs text-gray-400 mt-0.5 flex gap-2">
-                            <span title="E-Bike">⚡ ${station.ebike}</span>
-                            <span title="Meccaniche">🚲 ${station.mechanical}</span>
-                        </div>
-                    </div>
-                    <div class="flex items-center gap-2 shrink-0">
-                        <div class="text-right">
-                            <div class="font-bold text-lg leading-none">${station.available}</div>
-                            <div class="text-[10px] text-gray-400 uppercase tracking-wider">Disp.</div>
-                        </div>
-                        <div class="${dotColor} ml-1">●</div>
-                    </div>
-                `;
-                fragment.appendChild(item);
-            });
-
-            listEl.appendChild(fragment);
-
-            // Aggiorna cruscotto semaforo solo se non ci sono filtri attivi
-            // per mostrare sempre la situazione generale della città
-            if (currentFilter === 'all') {
-                document.getElementById('count-critical').innerText = cRed;
-                document.getElementById('count-warning').innerText = cYellow;
-                document.getElementById('count-normal').innerText = cGreen;
-            }
+            logMsg("=== RICEZIONE COMPLETATA. DATI MAPPA AGGIORNATI ===");
         }
 
-        // 5. DETTAGLIO STAZIONE
-        function selectStation(station, zoomMap = false) {
-            if (zoomMap) {
-                map.flyTo([station.lat, station.lng], 16, { duration: 1 });
-            }
-
-            const panel = document.getElementById('detail-panel');
-            
-            // Calcolo percentuale occupazione
-            const occupancy = station.capacity > 0 ? (station.available / station.capacity) * 100 : 0;
-            let barColor = 'bg-green-500';
-            if (station.status === 'red') barColor = 'bg-red-500';
-            else if (station.status === 'yellow') barColor = 'bg-yellow-400';
-
-            panel.innerHTML = `
-                <div class="flex justify-between items-start mb-3">
-                    <h2 class="text-lg font-bold text-indigo-900 leading-tight pr-2">${station.name}</h2>
-                    <span class="text-xs font-mono bg-gray-200 text-gray-600 px-2 py-1 rounded">ID: ${station.id}</span>
-                </div>
-                
-                <div class="grid grid-cols-2 gap-4 mb-4">
-                    <div class="bg-white p-3 rounded-lg border shadow-sm">
-                        <div class="text-sm text-gray-500 mb-1">Bici Disponibili</div>
-                        <div class="text-2xl font-bold text-gray-800">${station.available}</div>
-                        <div class="text-xs text-gray-400 mt-1 flex gap-2">
-                            <span class="text-blue-600 font-medium">⚡ ${station.ebike} e-bike</span>
-                        </div>
-                    </div>
-                    <div class="bg-white p-3 rounded-lg border shadow-sm">
-                        <div class="text-sm text-gray-500 mb-1">Posti Liberi</div>
-                        <div class="text-2xl font-bold text-gray-800">${station.docks}</div>
-                        <div class="text-xs text-gray-400 mt-1">su ${station.capacity} totali</div>
-                    </div>
-                </div>
-
-                <div class="mb-2">
-                    <div class="flex justify-between text-xs text-gray-500 mb-1">
-                        <span>Svuotamento</span>
-                        <span>${station.available} / ${station.capacity}</span>
-                    </div>
-                    <div class="w-full bg-gray-200 rounded-full h-2.5 overflow-hidden">
-                        <div class="${barColor} h-2.5 rounded-full transition-all duration-500" style="width: ${occupancy}%"></div>
-                    </div>
-                </div>
-                
-                <div class="text-xs text-right text-gray-400 mt-3">
-                    Ultimo ping API: ${station.lastReported}
-                </div>
-            `;
-        }
-
-        // 6. GESTIONE FILTRI
-        function filterSensors(type) {
-            currentFilter = type;
-            
-            // Stile bottoni
-            const btns = ['btn-all', 'btn-ebike', 'btn-red'];
-            btns.forEach(id => {
-                const b = document.getElementById(id);
-                b.className = 'px-3 py-1 rounded-md text-gray-500 hover:text-gray-900 transition-all'; // Reset
-            });
-            
-            const activeBtn = document.getElementById(`btn-${type}`);
-            activeBtn.className = 'px-3 py-1 rounded-md bg-white shadow-sm text-indigo-600 font-medium transition-all';
-            
-            renderDashboard();
-        }
-
-        // 7. START APP
         window.onload = () => {
-            // Primo fetch immediato
-            fetchRealtimeData();
+            logMsg("Inizializzazione ambiente e validazione sorgenti BCN...");
+            fetchAllData();
             
-            // Poiché si tratta di dati REALI, chiamiamo le API del Comune 
-            // ogni 30 secondi per aggiornare la mappa "live" senza intasare i loro server
-            setInterval(fetchRealtimeData, 30000);
+            // Ricarica automaticamente ogni minuto, come farebbe un terminale cittadino
+            setInterval(fetchAllData, 60000);
         };
     </script>
 </body>

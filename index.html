@@ -121,8 +121,8 @@
         const FEED_URL = "https://romamobilita.it/sites/default/files/rome_rtgtfs_vehicle_positions_feed.pb";
         const PROXY_URL = "https://fancy-wood-815c.djnutmac.workers.dev";
         
-        // URL ufficiale dello schema GTFS-Realtime fornito da Google
-        const PROTO_URL = "https://raw.githubusercontent.com/google/transit/master/gtfs-realtime/proto/gtfs-realtime.proto";
+        // URL ufficiale dello schema GTFS-Realtime tramite CDN (jsDelivr) per evitare blocchi CORS su GitHub Pages
+        const PROTO_URL = "https://cdn.jsdelivr.net/gh/google/transit@master/gtfs-realtime/proto/gtfs-realtime.proto";
         
         // --- VARIABILI GLOBALI ---
         const map = L.map('map', { zoomControl: false }).setView([41.8902, 12.4924], 13); // Centro di Roma

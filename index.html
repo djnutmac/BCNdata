@@ -82,7 +82,7 @@
                 <!-- Traffico (Trams) -->
                 <div>
                     <h2 class="text-sm font-bold uppercase tracking-wider text-orange-400 mb-3 border-b border-gray-800 pb-1">
-                        <i data-lucide="car" class="w-4 h-4 inline mr-1"></i> Traffico Trams (Stato in tempo reale)
+                        <i data-lucide="car" class="w-4 h-4 inline mr-1"></i> Traffico Itineraris (Live BCN)
                     </h2>
                     <div id="traffic-list" class="space-y-2">
                         <div class="text-xs text-gray-500 italic">In attesa di connessione all'API CKAN...</div>
@@ -255,50 +255,57 @@
 
         async function processTraffic() {
             try {
-                // 'trams' è il nome ufficiale del dataset BCN per i segmenti stradali
-                const records = await getLiveRecords('trams', 250);
+                // Usiamo ESATTAMENTE il pacchetto 'itineraris' come hai richiesto dal link
+                const records = await getLiveRecords('itineraris', 250);
                 
                 const listEl = document.getElementById('traffic-list');
                 listEl.innerHTML = '';
 
-                // Schema Colori Ufficiale Traffico BCN (Stato 0 a 6)
+                // Schema Colori Ufficiale Traffico BCN (Stato da 0 a 6 in base alla loro documentazione)
                 const trafficStates = {
-                    0: { label: "Sconosciuto", color: "bg-gray-600", border: "border-gray-500" },
-                    1: { label: "Molt fluid", color: "bg-green-500", border: "border-green-400" },
-                    2: { label: "Fluid", color: "bg-green-400", border: "border-green-300" },
-                    3: { label: "Dens", color: "bg-yellow-400", border: "border-yellow-300" },
-                    4: { label: "Molt dens", color: "bg-orange-500", border: "border-orange-400" },
-                    5: { label: "Congestió", color: "bg-red-600", border: "border-red-500" },
-                    6: { label: "Tallat (Chiusa)", color: "bg-black", border: "border-gray-700" }
+                    0: { label: "Nessun dato", color: "bg-gray-600", border: "border-gray-500" },
+                    1: { label: "Molt fluid (Scorrevole)", color: "bg-green-500", border: "border-green-400" },
+                    2: { label: "Fluid (Fluido)", color: "bg-green-400", border: "border-green-300" },
+                    3: { label: "Dens (Denso)", color: "bg-yellow-400", border: "border-yellow-300" },
+                    4: { label: "Molt dens (Molto denso)", color: "bg-orange-500", border: "border-orange-400" },
+                    5: { label: "Congestió (Congestionato)", color: "bg-red-600", border: "border-red-500" },
+                    6: { label: "Tallat (Strada Chiusa)", color: "bg-black", border: "border-gray-700" }
                 };
 
-                // Estrazione robusta
+                // Estrazione robusta colonne dal CSV in tempo reale (nomi in catalano)
                 const parsedTrams = records.map(row => {
-                    const kId = Object.keys(row).find(k => k.match(/id_tram/i) || k === 'idTram');
+                    const kId = Object.keys(row).find(k => k.match(/id_tram/i) || k === 'idTram' || k === 'tram');
                     const kState = Object.keys(row).find(k => k.match(/estat_actual/i) || k === 'estatActual');
-                    return { id: row[kId], state: parseInt(row[kState]) };
+                    const kDate = Object.keys(row).find(k => k.match(/data/i) || k === 'data');
+                    return { id: row[kId], state: parseInt(row[kState]), date: row[kDate] };
                 }).filter(r => r.id && !isNaN(r.state));
 
-                // Evitiamo di inserire 250 elementi in lista, mettiamo solo i peggiori o un campione
-                const sortedTrams = parsedTrams.sort((a,b) => b.state - a.state); // Più congestionati prima
-                const displayTrams = sortedTrams.slice(0, 50); // Mostra top 50 in lista
+                // Ordina per mostrare i tratti più congestionati/chiusi in cima alla lista
+                const sortedTrams = parsedTrams.sort((a,b) => b.state - a.state);
+                const displayTrams = sortedTrams.slice(0, 50); // Mostra top 50
 
-                logMsg(`Dati Traffico processati. Identificati ${parsedTrams.length} tratti stradali.`);
+                logMsg(`Dati Traffico "itineraris" elaborati. Trovate letture per ${parsedTrams.length} tratti.`);
 
                 displayTrams.forEach(tram => {
                     const stateObj = trafficStates[tram.state] || trafficStates[0];
-                    const coords = getFallbackCoords(tram.id, true); // Genera pos. fissa per ID tram
+                    
+                    // Il file CKAN contiene solo l'ID stradale, le coordinate sono in un file geografico a parte.
+                    // Per mantenere il codice in 1 solo file, qui approssimiamo il punto su mappa per visualizzarlo.
+                    const coords = getFallbackCoords(tram.id, true);
 
-                    // Elemento Lista
+                    // Elemento Lista Laterale
                     const item = document.createElement('div');
-                    item.className = 'bg-gray-800 p-2 rounded flex justify-between items-center cursor-pointer hover:bg-gray-700';
+                    item.className = 'bg-gray-800 p-2 rounded flex flex-col cursor-pointer hover:bg-gray-700 border-l-2 ' + stateObj.border;
                     item.onclick = () => map.flyTo(coords, 17);
                     item.innerHTML = `
-                        <div class="flex items-center gap-3">
-                            <div class="w-3 h-3 rounded-full ${stateObj.color}"></div>
-                            <div class="text-sm text-gray-300 font-mono">Tram #${tram.id}</div>
+                        <div class="flex justify-between items-center gap-3">
+                            <div class="flex items-center gap-2">
+                                <div class="w-3 h-3 rounded-full ${stateObj.color}"></div>
+                                <div class="text-sm text-gray-200 font-bold font-mono">Itinerario #${tram.id}</div>
+                            </div>
+                            <span class="text-[10px] text-gray-500">${tram.date || 'Live BCN'}</span>
                         </div>
-                        <div class="text-xs ${stateObj.color.replace('bg-', 'text-')} font-bold uppercase">${stateObj.label}</div>
+                        <div class="text-xs ${stateObj.color.replace('bg-', 'text-')} font-bold uppercase mt-1 ml-5">${stateObj.label}</div>
                     `;
                     listEl.appendChild(item);
 
@@ -306,12 +313,12 @@
                     const iconHtml = `<div class="traffic-marker ${stateObj.color} ${stateObj.border} w-4 h-4 opacity-80 hover:scale-150 transition-transform"></div>`;
                     const customIcon = L.divIcon({ html: iconHtml, className: '', iconSize: [16,16], iconAnchor: [8,8] });
                     const marker = L.marker(coords, { icon: customIcon }).addTo(map);
-                    marker.bindTooltip(`Tram ID: ${tram.id} <br/> Stato: ${stateObj.label}`);
+                    marker.bindTooltip(`<b>Itinerario #${tram.id}</b><br/>Stato: ${stateObj.label}`);
                     mapMarkers.push(marker);
                 });
 
             } catch (error) {
-                logMsg(`Errore elaborazione Traffico: ${error.message}`, true);
+                logMsg(`Errore elaborazione Traffico 'itineraris': ${error.message}`, true);
                 document.getElementById('traffic-list').innerHTML = `<div class="text-red-500 text-sm">Errore ricezione dati: ${error.message}</div>`;
             }
         }

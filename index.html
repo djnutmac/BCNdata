@@ -192,8 +192,14 @@
         // 1. Inizializza Protobuf
         async function initProtobuf() {
             try {
-                // Usiamo il metodo asincrono di protobuf.js per caricare lo schema remoto
-                const root = await protobuf.load(PROTO_URL);
+                // Usiamo fetch standard invece di protobuf.load per evitare problemi di blocco interni alla libreria
+                const response = await fetch(PROTO_URL);
+                if (!response.ok) throw new Error(`HTTP error fetching proto: ${response.status}`);
+                
+                const protoText = await response.text();
+                
+                // Parsiamo il testo direttamente con protobuf.js
+                const root = protobuf.parse(protoText).root;
                 FeedMessage = root.lookupType("transit_realtime.FeedMessage");
                 
                 setStatus(false); // Nascondi modale di avvio

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Smart City Dashboard - Barcellona</title>
+    <title>Barcellona Live - Rete Mobilità Reale</title>
     
     <!-- Tailwind CSS per il design -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -12,9 +12,6 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     
-    <!-- Chart.js per i grafici -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
 
@@ -22,16 +19,22 @@
         body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; }
         #map { z-index: 1; }
         
-        /* Animazione per i sensori critici sulla mappa */
+        /* Animazione per le stazioni critiche (vuote) */
         .pulse-red {
             box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
             animation: pulse-red-anim 2s infinite;
         }
         @keyframes pulse-red-anim {
-            0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
-            70% { box-shadow: 0 0 0 15px rgba(239, 68, 68, 0); }
+            0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.8); }
+            70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
             100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
         }
+
+        /* Scrollbar personalizzata per la sidebar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
     </style>
 </head>
 <body class="flex flex-col h-screen overflow-hidden text-gray-800">
@@ -39,12 +42,15 @@
     <!-- Header / Navbar -->
     <header class="bg-indigo-900 text-white p-4 shadow-md flex justify-between items-center z-10 shrink-0">
         <div class="flex items-center gap-3">
-            <i data-lucide="activity" class="text-indigo-400"></i>
-            <h1 class="text-xl font-bold">Barcelona Smart City <span class="text-sm font-normal text-indigo-300 ml-2">Open Data BCN</span></h1>
+            <i data-lucide="satellite" class="text-indigo-400"></i>
+            <div>
+                <h1 class="text-xl font-bold leading-tight">Barcelona Live Sensors</h1>
+                <p class="text-xs text-indigo-300">Dati ufficiali in tempo reale: Rete Bicing BCN</p>
+            </div>
         </div>
-        <div class="text-sm bg-indigo-800 px-3 py-1 rounded-full border border-indigo-700 flex items-center gap-2">
-            <div class="w-2 h-2 rounded-full bg-green-400 animate-pulse"></div>
-            Sistema Attivo
+        <div class="text-sm bg-indigo-800 px-3 py-1 rounded-full border border-indigo-700 flex items-center gap-2 shadow-inner" id="connection-status">
+            <div class="w-2 h-2 rounded-full bg-yellow-400 animate-pulse" id="status-dot"></div>
+            <span id="status-text">Connessione API in corso...</span>
         </div>
     </header>
 
@@ -54,31 +60,28 @@
             <div class="flex items-center gap-3">
                 <div class="text-2xl">🔴</div>
                 <div>
-                    <div class="text-sm text-gray-500 font-medium">Allarmi Critici</div>
+                    <div class="text-sm text-gray-500 font-medium">Stazioni Vuote (Critiche)</div>
                     <div class="text-xl font-bold text-red-700" id="count-critical">0</div>
                 </div>
             </div>
-            <i data-lucide="alert-triangle" class="text-red-300 w-8 h-8"></i>
         </div>
         <div class="flex items-center justify-between p-3 bg-yellow-50 rounded-lg border border-yellow-100">
             <div class="flex items-center gap-3">
                 <div class="text-2xl">🟡</div>
                 <div>
-                    <div class="text-sm text-gray-500 font-medium">Attenzione</div>
+                    <div class="text-sm text-gray-500 font-medium">In Esaurimento (1-2 Bici)</div>
                     <div class="text-xl font-bold text-yellow-700" id="count-warning">0</div>
                 </div>
             </div>
-            <i data-lucide="alert-circle" class="text-yellow-300 w-8 h-8"></i>
         </div>
         <div class="flex items-center justify-between p-3 bg-green-50 rounded-lg border border-green-100">
             <div class="flex items-center gap-3">
                 <div class="text-2xl">🟢</div>
                 <div>
-                    <div class="text-sm text-gray-500 font-medium">Sensori Normali</div>
+                    <div class="text-sm text-gray-500 font-medium">Ben Fornite (>2 Bici)</div>
                     <div class="text-xl font-bold text-green-700" id="count-normal">0</div>
                 </div>
             </div>
-            <i data-lucide="check-circle" class="text-green-300 w-8 h-8"></i>
         </div>
     </div>
 
@@ -88,262 +91,281 @@
         <!-- Left: Map -->
         <div id="map" class="flex-1 h-1/2 md:h-full relative"></div>
 
-        <!-- Right: Sidebar (Details & Charts) -->
+        <!-- Right: Sidebar (Details & List) -->
         <div class="w-full md:w-[400px] lg:w-[450px] bg-white border-l shadow-2xl flex flex-col h-1/2 md:h-full z-10">
             
-            <!-- Chart Section -->
-            <div class="p-5 border-b bg-gray-50 shrink-0">
-                <h2 class="text-lg font-semibold mb-1" id="chart-title">Seleziona un sensore</h2>
-                <p class="text-sm text-gray-500 mb-4" id="chart-subtitle">Clicca sulla mappa per vedere i dati storici</p>
-                <div class="h-48 w-full">
-                    <canvas id="sensorChart"></canvas>
+            <!-- Realtime Detail Panel (Sostituisce il grafico) -->
+            <div class="p-5 border-b bg-gray-50 shrink-0" id="detail-panel">
+                <div class="flex items-center gap-2 mb-2 text-gray-400">
+                    <i data-lucide="info" class="w-5 h-5"></i>
+                    <span class="text-sm">Seleziona una stazione sulla mappa</span>
                 </div>
+                <h2 class="text-lg font-bold text-gray-300">Nessuna stazione selezionata</h2>
             </div>
 
             <!-- List Section -->
-            <div class="p-4 flex-1 overflow-y-auto">
-                <div class="flex justify-between items-center mb-4">
-                    <h3 class="font-semibold text-gray-700">Elenco Sensori</h3>
-                    <div class="flex gap-2 text-sm">
-                        <button onclick="filterSensors('all')" class="hover:text-indigo-600 font-medium text-indigo-600">Tutti</button>
-                        <button onclick="filterSensors('traffic')" class="hover:text-gray-900 text-gray-400">Traffico</button>
-                        <button onclick="filterSensors('air')" class="hover:text-gray-900 text-gray-400">Aria</button>
+            <div class="p-4 flex-1 overflow-y-auto flex flex-col">
+                <div class="flex justify-between items-center mb-4 shrink-0">
+                    <h3 class="font-semibold text-gray-700">Tutte le <span id="total-sensors">0</span> stazioni</h3>
+                    <div class="flex gap-2 text-sm bg-gray-100 p-1 rounded-lg">
+                        <button onclick="filterSensors('all')" id="btn-all" class="px-3 py-1 rounded-md bg-white shadow-sm text-indigo-600 font-medium transition-all">Tutte</button>
+                        <button onclick="filterSensors('ebike')" id="btn-ebike" class="px-3 py-1 rounded-md text-gray-500 hover:text-gray-900 transition-all">Con E-Bike</button>
+                        <button onclick="filterSensors('red')" id="btn-red" class="px-3 py-1 rounded-md text-gray-500 hover:text-gray-900 transition-all">Vuote</button>
                     </div>
                 </div>
-                <div id="sensor-list" class="space-y-3">
-                    <!-- I sensori verranno iniettati qui da JS -->
+                <!-- Lista virtualizzata/ottimizzata -->
+                <div id="sensor-list" class="space-y-2 flex-1">
+                    <!-- Iniettato via JS -->
                 </div>
             </div>
         </div>
     </main>
 
     <script>
-        // Inizializza le icone Lucide
         lucide.createIcons();
 
-        // 1. INIZIALIZZAZIONE MAPPA (Centrata su Barcellona)
+        // 1. INIZIALIZZAZIONE MAPPA
         const map = L.map('map').setView([41.3851, 2.1734], 13);
         L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-            attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
+            attribution: '&copy; OpenStreetMap &copy; CARTO | Data: Open Data BCN',
             subdomains: 'abcd',
-            maxZoom: 20
+            maxZoom: 19
         }).addTo(map);
 
-        // 2. VARIABILI DI STATO
-        let sensors = [];
+        // 2. VARIABILI GLOBALI
+        let stationsData = [];
         let mapMarkers = [];
-        let chartInstance = null;
         let currentFilter = 'all';
 
-        // 3. GENERATORE DI DATI (Simula le API di Open Data BCN)
-        // Nota: in un'app di produzione, qui useresti fetch('https://opendata-ajuntament.barcelona.cat/data/api/...')
-        function generateMockData() {
-            const types = [
-                { id: 'traffic', name: 'Traffico (Congestione %)', unit: '%', icon: '🚗', range: [10, 100] },
-                { id: 'air', name: 'Qualità Aria (PM10 µg/m³)', unit: 'µg/m³', icon: '💨', range: [5, 60] },
-                { id: 'temp', name: 'Meteo (Temperatura)', unit: '°C', icon: '🌡️', range: [15, 32] }
-            ];
+        // Endpoint reali di Barcellona Bicing (GBFS API)
+        const URL_INFO = 'https://barcelona.publicbikesystem.net/customer/gbfs/v2/en/station_information';
+        const URL_STATUS = 'https://barcelona.publicbikesystem.net/customer/gbfs/v2/en/station_status';
 
-            const locations = [
-                { name: "Plaça Catalunya", lat: 41.3870, lng: 2.1700 },
-                { name: "Sagrada Familia", lat: 41.4036, lng: 2.1744 },
-                { name: "Barceloneta", lat: 41.3784, lng: 2.1925 },
-                { name: "Camp Nou", lat: 41.3809, lng: 2.1228 },
-                { name: "Park Güell", lat: 41.4145, lng: 2.1527 },
-                { name: "Passeig de Gràcia", lat: 41.3934, lng: 2.1646 },
-                { name: "Plaça d'Espanya", lat: 41.3750, lng: 2.1491 },
-                { name: "Port Olímpic", lat: 41.3879, lng: 2.1994 }
-            ];
+        // 3. FETCH DAI SERVER REALI DI BARCELLONA
+        async function fetchRealtimeData() {
+            try {
+                // Aggiorna UI stato
+                document.getElementById('status-dot').className = 'w-2 h-2 rounded-full bg-yellow-400 animate-pulse';
+                document.getElementById('status-text').innerText = 'Sincronizzazione API...';
 
-            const mockSensors = [];
+                // Richiesta parallela di anagrafica e stato in tempo reale
+                const [infoResponse, statusResponse] = await Promise.all([
+                    fetch(URL_INFO),
+                    fetch(URL_STATUS)
+                ]);
 
-            locations.forEach((loc, index) => {
-                // Assegna 1 o 2 sensori a ogni location
-                const numSensors = Math.floor(Math.random() * 2) + 1;
-                for(let i=0; i<numSensors; i++) {
-                    const type = types[Math.floor(Math.random() * types.length)];
+                if (!infoResponse.ok || !statusResponse.ok) throw new Error("Errore HTTP");
+
+                const infoJson = await infoResponse.json();
+                const statusJson = await statusResponse.json();
+
+                // Creiamo una mappa temporanea per unire i dati per ID
+                const infoMap = new Map();
+                infoJson.data.stations.forEach(station => {
+                    infoMap.set(station.station_id, station);
+                });
+
+                // Uniamo anagrafica (coordinate, nome) allo stato (disponibilità)
+                const mergedData = statusJson.data.stations.map(status => {
+                    const info = infoMap.get(status.station_id);
+                    if (!info) return null;
+
+                    const totalBikes = status.num_bikes_available;
+                    let mechBikes = 0;
+                    let eBikes = 0;
                     
-                    // Genera valore corrente
-                    const currentValue = Math.floor(Math.random() * (type.range[1] - type.range[0]) + type.range[0]);
-                    
-                    // Calcola lo stato (Semaforo)
-                    let status = 'green';
-                    if (type.id === 'traffic' && currentValue > 80) status = 'red';
-                    else if (type.id === 'traffic' && currentValue > 60) status = 'yellow';
-                    if (type.id === 'air' && currentValue > 45) status = 'red';
-                    else if (type.id === 'air' && currentValue > 30) status = 'yellow';
-                    if (type.id === 'temp' && currentValue > 30) status = 'red';
-                    else if (type.id === 'temp' && currentValue > 27) status = 'yellow';
-
-                    // Genera storico (ultime 12 ore)
-                    const history = [];
-                    let lastVal = currentValue;
-                    for(let h=12; h>=1; h--) {
-                        lastVal = lastVal + (Math.random() * 10 - 5);
-                        if(lastVal < 0) lastVal = 5;
-                        history.push(Math.round(lastVal));
+                    // Gestione struttura dati dell'API
+                    if (status.num_bikes_available_types) {
+                        mechBikes = status.num_bikes_available_types.mechanical || 0;
+                        eBikes = status.num_bikes_available_types.ebike || 0;
                     }
-                    history.reverse(); // cronologico
-                    history.push(currentValue); // aggiungi l'attuale
 
-                    // Sposta leggermente i marker se ci sono più sensori nello stesso posto
-                    const offsetLat = loc.lat + (Math.random() * 0.002 - 0.001);
-                    const offsetLng = loc.lng + (Math.random() * 0.002 - 0.001);
+                    // Calcolo semaforo per il cruscotto
+                    let condition = 'green';
+                    if (totalBikes === 0) condition = 'red'; // Stazione svuotata
+                    else if (totalBikes <= 2) condition = 'yellow'; // Quasi vuota
 
-                    mockSensors.push({
-                        id: `sn_${index}_${i}`,
-                        name: `${type.icon} ${type.name} - ${loc.name}`,
-                        type: type.id,
-                        unit: type.unit,
-                        lat: offsetLat,
-                        lng: offsetLng,
-                        value: currentValue,
-                        status: status,
-                        history: history,
-                        timestamp: new Date().toLocaleTimeString()
-                    });
-                }
-            });
+                    return {
+                        id: status.station_id,
+                        name: info.name,
+                        lat: info.lat,
+                        lng: info.lon, // L'API usa 'lon' invece di 'lng'
+                        capacity: info.capacity,
+                        available: totalBikes,
+                        mechanical: mechBikes,
+                        ebike: eBikes,
+                        docks: status.num_docks_available,
+                        status: condition,
+                        lastReported: new Date(status.last_reported * 1000).toLocaleTimeString('it-IT')
+                    };
+                }).filter(s => s !== null && s.status !== undefined); // Pulizia dati corrotti
 
-            return mockSensors;
+                stationsData = mergedData;
+                renderDashboard();
+
+                // Aggiorna UI stato (Connesso)
+                document.getElementById('status-dot').className = 'w-2 h-2 rounded-full bg-green-400';
+                document.getElementById('status-text').innerText = 'Live - Dati Reali Aggiornati';
+                document.getElementById('total-sensors').innerText = stationsData.length;
+
+            } catch (error) {
+                console.error("Errore di connessione API:", error);
+                document.getElementById('status-dot').className = 'w-2 h-2 rounded-full bg-red-500';
+                document.getElementById('status-text').innerText = 'Errore di connessione API';
+            }
         }
 
-        // 4. RENDERING DELL'INTERFACCIA
+        // 4. MOTORE DI RENDERING (MAPPA E LISTA)
         function renderDashboard() {
-            // Conta stati per i pannelli alert
             let cRed = 0, cYellow = 0, cGreen = 0;
             
-            // Pulisci mappa e lista
+            // Pulisci vecchi layer dalla mappa
             mapMarkers.forEach(m => map.removeLayer(m));
             mapMarkers = [];
+            
             const listEl = document.getElementById('sensor-list');
             listEl.innerHTML = '';
+            
+            // DocumentFragment per prestazioni alte (500+ elementi DOM)
+            const fragment = document.createDocumentFragment();
 
-            sensors.forEach(sensor => {
-                if(currentFilter !== 'all' && sensor.type !== currentFilter) return;
+            stationsData.forEach(station => {
+                // Filtri
+                if (currentFilter === 'ebike' && station.ebike === 0) return;
+                if (currentFilter === 'red' && station.status !== 'red') return;
 
-                // Statistiche
-                if(sensor.status === 'red') cRed++;
-                else if(sensor.status === 'yellow') cYellow++;
+                // Aggiorna contatori header (sempre sui totali filtrati o generali)
+                if (station.status === 'red') cRed++;
+                else if (station.status === 'yellow') cYellow++;
                 else cGreen++;
 
-                // Aggiungi Marker sulla Mappa (HTML Custom)
+                // Generazione Pallino Mappa Custom
                 let colorClass = 'bg-green-500';
-                if(sensor.status === 'red') colorClass = 'bg-red-500 pulse-red';
-                if(sensor.status === 'yellow') colorClass = 'bg-yellow-400';
+                if (station.status === 'red') colorClass = 'bg-red-500 pulse-red';
+                if (station.status === 'yellow') colorClass = 'bg-yellow-400';
 
-                const iconHtml = `<div class="w-4 h-4 rounded-full ${colorClass} border-2 border-white shadow-md cursor-pointer hover:scale-150 transition-transform"></div>`;
-                const customIcon = L.divIcon({ html: iconHtml, className: '', iconSize: [16,16], iconAnchor: [8,8] });
+                // Pallini leggermente più piccoli per gestire 500 stazioni
+                const iconHtml = `<div class="w-3 h-3 rounded-full ${colorClass} border border-white shadow-sm cursor-pointer hover:scale-150 transition-transform"></div>`;
+                const customIcon = L.divIcon({ html: iconHtml, className: '', iconSize: [12,12], iconAnchor: [6,6] });
                 
-                const marker = L.marker([sensor.lat, sensor.lng], { icon: customIcon }).addTo(map);
-                marker.bindTooltip(sensor.name);
-                marker.on('click', () => selectSensor(sensor));
+                const marker = L.marker([station.lat, station.lng], { icon: customIcon }).addTo(map);
+                marker.bindTooltip(`<b>${station.name}</b><br/>Bici: ${station.available}`);
+                marker.on('click', () => selectStation(station, true));
                 mapMarkers.push(marker);
 
-                // Aggiungi alla Lista Sidebar
+                // Generazione Elemento Lista
                 const item = document.createElement('div');
-                item.className = 'p-3 rounded-lg border bg-white hover:bg-gray-50 cursor-pointer transition-colors flex justify-between items-center';
-                item.onclick = () => selectSensor(sensor);
+                item.className = 'p-3 rounded-lg border bg-white hover:border-indigo-300 cursor-pointer transition-colors flex justify-between items-center group';
+                item.onclick = () => selectStation(station, true);
                 
-                let dotColor = sensor.status === 'red' ? 'text-red-500' : (sensor.status === 'yellow' ? 'text-yellow-500' : 'text-green-500');
+                let dotColor = station.status === 'red' ? 'text-red-500' : (station.status === 'yellow' ? 'text-yellow-500' : 'text-green-500');
                 
                 item.innerHTML = `
-                    <div>
-                        <div class="font-medium text-gray-800 text-sm">${sensor.name}</div>
-                        <div class="text-xs text-gray-400 mt-1">Ultimo agg: ${sensor.timestamp}</div>
+                    <div class="truncate mr-3 overflow-hidden">
+                        <div class="font-semibold text-gray-800 text-sm truncate group-hover:text-indigo-700 transition-colors">${station.name}</div>
+                        <div class="text-xs text-gray-400 mt-0.5 flex gap-2">
+                            <span title="E-Bike">⚡ ${station.ebike}</span>
+                            <span title="Meccaniche">🚲 ${station.mechanical}</span>
+                        </div>
                     </div>
-                    <div class="flex items-center gap-2">
-                        <span class="font-bold text-lg">${sensor.value} <span class="text-xs font-normal text-gray-500">${sensor.unit}</span></span>
-                        <div class="${dotColor}">●</div>
+                    <div class="flex items-center gap-2 shrink-0">
+                        <div class="text-right">
+                            <div class="font-bold text-lg leading-none">${station.available}</div>
+                            <div class="text-[10px] text-gray-400 uppercase tracking-wider">Disp.</div>
+                        </div>
+                        <div class="${dotColor} ml-1">●</div>
                     </div>
                 `;
-                listEl.appendChild(item);
+                fragment.appendChild(item);
             });
 
-            // Aggiorna contatori Header
-            document.getElementById('count-critical').innerText = cRed;
-            document.getElementById('count-warning').innerText = cYellow;
-            document.getElementById('count-normal').innerText = cGreen;
+            listEl.appendChild(fragment);
+
+            // Aggiorna cruscotto semaforo solo se non ci sono filtri attivi
+            // per mostrare sempre la situazione generale della città
+            if (currentFilter === 'all') {
+                document.getElementById('count-critical').innerText = cRed;
+                document.getElementById('count-warning').innerText = cYellow;
+                document.getElementById('count-normal').innerText = cGreen;
+            }
         }
 
-        // 5. GESTIONE SELEZIONE E GRAFICI
-        function selectSensor(sensor) {
-            // Centra mappa
-            map.flyTo([sensor.lat, sensor.lng], 15, { duration: 1.5 });
-
-            // Aggiorna titoli
-            document.getElementById('chart-title').innerText = sensor.name;
-            document.getElementById('chart-subtitle').innerText = `Stato attuale: ${sensor.value} ${sensor.unit}`;
-
-            // Colore grafico basato sullo stato
-            let graphColor = '#22c55e'; // green
-            let graphBg = 'rgba(34, 197, 94, 0.1)';
-            if(sensor.status === 'red') { graphColor = '#ef4444'; graphBg = 'rgba(239, 68, 68, 0.1)'; }
-            if(sensor.status === 'yellow') { graphColor = '#eab308'; graphBg = 'rgba(234, 179, 8, 0.1)'; }
-
-            // Labels temporali (Ultime 12 ore)
-            const labels = [];
-            const now = new Date();
-            for(let i=12; i>=0; i--) {
-                let d = new Date(now.getTime() - (i * 60 * 60 * 1000));
-                labels.push(d.getHours() + ":00");
+        // 5. DETTAGLIO STAZIONE
+        function selectStation(station, zoomMap = false) {
+            if (zoomMap) {
+                map.flyTo([station.lat, station.lng], 16, { duration: 1 });
             }
 
-            // Distruggi vecchio grafico se esiste
-            if(chartInstance) {
-                chartInstance.destroy();
-            }
+            const panel = document.getElementById('detail-panel');
+            
+            // Calcolo percentuale occupazione
+            const occupancy = station.capacity > 0 ? (station.available / station.capacity) * 100 : 0;
+            let barColor = 'bg-green-500';
+            if (station.status === 'red') barColor = 'bg-red-500';
+            else if (station.status === 'yellow') barColor = 'bg-yellow-400';
 
-            // Crea nuovo grafico
-            const ctx = document.getElementById('sensorChart').getContext('2d');
-            chartInstance = new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: labels,
-                    datasets: [{
-                        label: `Andamento (${sensor.unit})`,
-                        data: sensor.history,
-                        borderColor: graphColor,
-                        backgroundColor: graphBg,
-                        borderWidth: 2,
-                        pointRadius: 3,
-                        fill: true,
-                        tension: 0.4
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { legend: { display: false } },
-                    scales: {
-                        y: { beginAtZero: false },
-                        x: { grid: { display: false } }
-                    }
-                }
-            });
+            panel.innerHTML = `
+                <div class="flex justify-between items-start mb-3">
+                    <h2 class="text-lg font-bold text-indigo-900 leading-tight pr-2">${station.name}</h2>
+                    <span class="text-xs font-mono bg-gray-200 text-gray-600 px-2 py-1 rounded">ID: ${station.id}</span>
+                </div>
+                
+                <div class="grid grid-cols-2 gap-4 mb-4">
+                    <div class="bg-white p-3 rounded-lg border shadow-sm">
+                        <div class="text-sm text-gray-500 mb-1">Bici Disponibili</div>
+                        <div class="text-2xl font-bold text-gray-800">${station.available}</div>
+                        <div class="text-xs text-gray-400 mt-1 flex gap-2">
+                            <span class="text-blue-600 font-medium">⚡ ${station.ebike} e-bike</span>
+                        </div>
+                    </div>
+                    <div class="bg-white p-3 rounded-lg border shadow-sm">
+                        <div class="text-sm text-gray-500 mb-1">Posti Liberi</div>
+                        <div class="text-2xl font-bold text-gray-800">${station.docks}</div>
+                        <div class="text-xs text-gray-400 mt-1">su ${station.capacity} totali</div>
+                    </div>
+                </div>
+
+                <div class="mb-2">
+                    <div class="flex justify-between text-xs text-gray-500 mb-1">
+                        <span>Svuotamento</span>
+                        <span>${station.available} / ${station.capacity}</span>
+                    </div>
+                    <div class="w-full bg-gray-200 rounded-full h-2.5 overflow-hidden">
+                        <div class="${barColor} h-2.5 rounded-full transition-all duration-500" style="width: ${occupancy}%"></div>
+                    </div>
+                </div>
+                
+                <div class="text-xs text-right text-gray-400 mt-3">
+                    Ultimo ping API: ${station.lastReported}
+                </div>
+            `;
         }
 
-        // 6. FILTRI
+        // 6. GESTIONE FILTRI
         function filterSensors(type) {
             currentFilter = type;
+            
+            // Stile bottoni
+            const btns = ['btn-all', 'btn-ebike', 'btn-red'];
+            btns.forEach(id => {
+                const b = document.getElementById(id);
+                b.className = 'px-3 py-1 rounded-md text-gray-500 hover:text-gray-900 transition-all'; // Reset
+            });
+            
+            const activeBtn = document.getElementById(`btn-${type}`);
+            activeBtn.className = 'px-3 py-1 rounded-md bg-white shadow-sm text-indigo-600 font-medium transition-all';
+            
             renderDashboard();
         }
 
-        // START APP
+        // 7. START APP
         window.onload = () => {
-            sensors = generateMockData();
-            renderDashboard();
+            // Primo fetch immediato
+            fetchRealtimeData();
             
-            // Seleziona il primo sensore di default per popolare il grafico
-            if(sensors.length > 0) {
-                selectSensor(sensors[0]);
-            }
-            
-            // Simula aggiornamenti in tempo reale ogni 10 secondi
-            setInterval(() => {
-                sensors = generateMockData();
-                renderDashboard();
-            }, 10000);
+            // Poiché si tratta di dati REALI, chiamiamo le API del Comune 
+            // ogni 30 secondi per aggiornare la mappa "live" senza intasare i loro server
+            setInterval(fetchRealtimeData, 30000);
         };
     </script>
 </body>
